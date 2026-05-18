@@ -1,7 +1,7 @@
 """Cross-check every generator's analytic gradient against a 4th-order centred
 finite difference of the rendered intensity, on the signal mask.
 
-Pass criterion (per §1.1 sanity diagnostic): max relative error < 1e-3.
+Pass criterion for most generators is max relative error < 1e-3.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import math
 
 import torch
 
-from cpgf_generators import (
+from agfb_generators import (
     curved_arc,
     gaussian_blob,
     gaussian_ridge,
@@ -20,14 +20,14 @@ from cpgf_generators import (
     smoothed_bar,
     smoothed_step,
 )
-from cpgf_generators.base import Frame
+from agfb_generators.base import Frame
 
 
 def _fd4(I: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """Approximate gradients for one image with a fourth-order finite difference.
 
     The analytic-gradient tests use this helper as the numerical reference for
-    a rendered CPGF intensity field before comparing only the inner signal mask.
+    a rendered AGFB intensity field before comparing only the inner signal mask.
     """
     gx = torch.zeros_like(I)
     gy = torch.zeros_like(I)
@@ -37,7 +37,7 @@ def _fd4(I: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
 
 
 def _check_signal_mask(frame: Frame, *, rel_tol: float, name: str) -> None:
-    """Assert finite-difference agreement on the CPGF signal mask.
+    """Assert finite-difference agreement on the AGFB signal mask.
 
     Generator tests use this helper to compute an A1-style normalized root mean
     square error between each frame's analytic gradient and the finite
@@ -63,14 +63,14 @@ def _check_signal_mask(frame: Frame, *, rel_tol: float, name: str) -> None:
 
 
 def test_smoothed_step_gradient_matches_fd() -> None:
-    """Check the smoothed straight edge gradient used by the CPGF benchmark."""
+    """Check the smoothed straight edge gradient used by the AGFB benchmark."""
     f = smoothed_step(256, 256, theta_rad=math.radians(30.0), sigma_e=4.0)
     _check_signal_mask(f, rel_tol=1e-3, name="smoothed_step")
 
 
 def test_hard_step_gradient_matches_fd() -> None:
     """Check the hard-edge wrapper at the relaxed tolerance its width requires."""
-    # sigma_e=0.5 px is at Nyquist; 4th-order FD cannot achieve the §1.1 1e-3
+    # sigma_e=0.5 px is at Nyquist; 4th-order FD cannot achieve the usual 1e-3
     # bar here. We only check that gradient magnitudes are in the same ballpark.
     f = hard_step(256, 256, theta_rad=math.radians(15.0))
     _check_signal_mask(f, rel_tol=3e-1, name="hard_step")
@@ -83,7 +83,7 @@ def test_curved_arc_gradient_matches_fd() -> None:
 
 
 def test_sinusoid_gradient_matches_fd() -> None:
-    """Check the sinusoidal grating gradient used for CPGF frequency response."""
+    """Check the sinusoidal grating gradient used for AGFB frequency response."""
     f = sinusoid(256, 256, freq=0.05, theta_rad=math.radians(30.0))
     _check_signal_mask(f, rel_tol=1e-2, name="sinusoid")
 
@@ -95,7 +95,7 @@ def test_gaussian_blob_gradient_matches_fd() -> None:
 
 
 def test_gaussian_ridge_gradient_matches_fd() -> None:
-    """Check the oriented Gaussian ridge gradient used by CPGF ridge cases."""
+    """Check the oriented Gaussian ridge gradient used by AGFB ridge cases."""
     f = gaussian_ridge(256, 256, sigma=4.0, theta_rad=math.radians(20.0))
     _check_signal_mask(f, rel_tol=1e-3, name="gaussian_ridge")
 
@@ -107,7 +107,7 @@ def test_smoothed_bar_gradient_matches_fd() -> None:
 
 
 def test_polynomial_gradient_matches_fd() -> None:
-    """Check the polynomial sanity generator used for CPGF basis recovery."""
+    """Check the polynomial field generator used for exact low-order structure."""
     coeffs = torch.zeros(1, 4, 4)
     coeffs[0, 0, 0] = 0.0
     coeffs[0, 1, 0] = 0.3

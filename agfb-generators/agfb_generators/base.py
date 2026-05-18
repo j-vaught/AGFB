@@ -24,7 +24,7 @@ Numeric = float | int | torch.Tensor
 class Frame:
     """Container for one rendered generator batch.
 
-    Every CPGF generator returns a `Frame` so benchmark code, diagnostics, and
+    Every AGFB generator returns a `Frame` so benchmark code, metrics, and
     tests can keep the intensity image and analytic ground-truth gradients
     together with a shared shape convention.
     """
@@ -36,7 +36,7 @@ class Frame:
     def gx(self) -> torch.Tensor:
         """Return the horizontal gradient channel.
 
-        CPGF metrics and regression tests use this as the analytic `g_x`
+        AGFB metrics and regression tests use this as the analytic `g_x`
         reference for a rendered frame.
         """
         return self.g[:, 0]
@@ -45,7 +45,7 @@ class Frame:
     def gy(self) -> torch.Tensor:
         """Return the vertical gradient channel.
 
-        CPGF metrics and regression tests use this as the analytic `g_y`
+        AGFB metrics and regression tests use this as the analytic `g_y`
         reference for a rendered frame.
         """
         return self.g[:, 1]
@@ -64,7 +64,7 @@ class Frame:
         """Return the image height in pixels.
 
         Callers use this with `width` when validating frame shape against a
-        requested CPGF render size.
+        requested AGFB render size.
         """
         return int(self.I.shape[1])
 
@@ -73,7 +73,7 @@ class Frame:
         """Return the image width in pixels.
 
         Callers use this with `height` when validating frame shape against a
-        requested CPGF render size.
+        requested AGFB render size.
         """
         return int(self.I.shape[2])
 
@@ -81,7 +81,7 @@ class Frame:
 def coord_grid(
     height: int, width: int, device: torch.device, dtype: torch.dtype = torch.float32
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return centered pixel coordinate grids for a CPGF render.
+    """Return centered pixel coordinate grids for an AGFB render.
 
     Generator functions use `xx` and `yy` to evaluate analytic intensity and
     gradient formulas on the shared convention where the origin is the image
@@ -103,7 +103,7 @@ def as_batch(
 ) -> torch.Tensor:
     """Convert one scalar generator parameter into a broadcast batch tensor.
 
-    Public CPGF generators use this after `infer_batch_size` so Python scalars
+    Public AGFB generators use this after `infer_batch_size` so Python scalars
     and 1-D tensor parameters share the `(B, 1, 1)` shape needed for vectorized
     PyTorch formulas.
     """
@@ -132,7 +132,7 @@ def gauss_phi(u: torch.Tensor) -> torch.Tensor:
 def gauss_Phi(u: torch.Tensor) -> torch.Tensor:
     """Evaluate the standard-normal cumulative distribution function.
 
-    CPGF edge-like generators use this to turn signed distance fields into
+    AGFB edge-like generators use this to turn signed distance fields into
     smoothly band-limited intensity transitions.
     """
     return 0.5 * (1.0 + torch.erf(u / math.sqrt(2.0)))
@@ -143,7 +143,7 @@ def infer_batch_size(*params: Numeric) -> int:
 
     Public generators use the first 1-D tensor parameter as `B`; scalar-only
     calls default to one frame so the same code path handles scalar and batched
-    CPGF scenes.
+    AGFB scenes.
     """
     for p in params:
         if isinstance(p, torch.Tensor) and p.ndim == 1:
@@ -154,8 +154,8 @@ def infer_batch_size(*params: Numeric) -> int:
 def pack(I: torch.Tensor, gx: torch.Tensor, gy: torch.Tensor) -> Frame:
     """Package intensity and gradient tensors into the shared `Frame` type.
 
-    Generators call this at return time so downstream CPGF metrics, diagnostics,
-    and tests always receive contiguous tensors in the same channel order.
+    Generators call this at return time so downstream AGFB metrics and tests
+    always receive contiguous tensors in the same channel order.
     """
     g = torch.stack((gx, gy), dim=1)
     return Frame(I=I.contiguous(), g=g.contiguous())

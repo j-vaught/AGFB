@@ -1,10 +1,10 @@
-"""Isotropic 2D Gaussian peak (§1.1 `gaussian_blob`)."""
+"""Isotropic two-dimensional Gaussian peak generator."""
 
 from __future__ import annotations
 
 import torch
 
-from cpgf_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
+from agfb_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
 
 
 def gaussian_blob(
@@ -20,7 +20,7 @@ def gaussian_blob(
 ) -> Frame:
     """Render a batched isotropic Gaussian peak.
 
-    CPGF uses this blob scene to test gradients whose direction changes across
+    AGFB uses this blob scene to test gradients whose direction changes across
     the image. It evaluates
     `I = c * exp(-((x - x0)^2 + (y - y0)^2) / (2 sigma^2))` and returns the
     closed-form spatial gradient of that surface.

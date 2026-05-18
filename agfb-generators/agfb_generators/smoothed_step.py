@@ -1,10 +1,10 @@
-"""Smoothed straight edge (§1.1 `smoothed_step`)."""
+"""Smoothed straight-edge generator."""
 
 from __future__ import annotations
 
 import torch
 
-from cpgf_generators.base import (
+from agfb_generators.base import (
     Frame,
     Numeric,
     as_batch,
@@ -29,7 +29,7 @@ def smoothed_step(
 ) -> Frame:
     """Render a batched Gaussian-smoothed straight edge.
 
-    CPGF uses this as the canonical straight-edge generator, and `hard_step`,
+    AGFB uses this as the canonical straight-edge generator, and `hard_step`,
     `smoothed_bar`, and regression tests build on it. It evaluates
     `I = c * Phi((p . n_hat - x0) / sigma_e)` and returns the intensity plus
     the analytic gradient aligned with `n_hat = (cos t, sin t)`.

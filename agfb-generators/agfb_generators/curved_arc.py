@@ -1,10 +1,10 @@
-"""Radially smoothed disc (§1.1 `curved_arc`)."""
+"""Radially smoothed disc generator."""
 
 from __future__ import annotations
 
 import torch
 
-from cpgf_generators.base import (
+from agfb_generators.base import (
     Frame,
     Numeric,
     as_batch,
@@ -30,7 +30,7 @@ def curved_arc(
 ) -> Frame:
     """Render a batched radially smoothed disc boundary.
 
-    CPGF uses this to test curved edge recovery. It evaluates
+    AGFB uses this to test curved edge recovery. It evaluates
     `I = c * Phi((r0 - rho) / sigma_e)` with `rho = ||p - center||` and
     returns the inward analytic gradient of that transition.
     """

@@ -1,13 +1,13 @@
-"""Composite scene rendered from disjoint rectangular regions (§1.1 `composite`).
+"""Composite frame rendered from disjoint rectangular regions.
 
 The general partition is arbitrary in the spec; here we support a list of
 axis-aligned rectangles, each owned by one component generator. Pixels outside
 every rectangle are filled with a default `Frame` of zeros. Pixels within
 `r_j = 3` of any boundary are returned in a junction mask of shape `(H, W)`.
 
-Batched composites are not supported in v1 — composites are rare (3 × 8 = 24
-frames total in production) and assembling them per-frame is cheaper than
-designing a tensor-of-rectangles API. Pass a `list[CompositeRect]` per call.
+Batched composites are not supported in v1. Assembling them per-frame keeps the
+API simple and avoids a tensor-of-rectangles interface. Pass a
+`list[CompositeRect]` per call.
 """
 
 from __future__ import annotations
@@ -16,12 +16,12 @@ from dataclasses import dataclass
 
 import torch
 
-from cpgf_generators.base import Frame, coord_grid
+from agfb_generators.base import Frame, coord_grid
 
 
 @dataclass(frozen=True)
 class CompositeRect:
-    """Describe one rectangular region in a composite CPGF frame.
+    """Describe one rectangular region in a composite AGFB frame.
 
     `composite` consumes these records to copy pixels from pre-rendered
     component frames into an axis-aligned partition. The `frame` is rendered at
@@ -45,9 +45,9 @@ def composite(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> tuple[Frame, torch.Tensor]:
-    """Assemble one CPGF composite frame and its junction mask.
+    """Assemble one AGFB composite frame and its junction mask.
 
-    CPGF uses composites to combine disjoint component generators in one image.
+    AGFB uses composites to combine disjoint component generators in one image.
     The function copies each `CompositeRect` into a zero-filled frame, rejects
     out-of-bounds or batched components, and returns the assembled `Frame`
     plus a boolean `(H, W)` mask around component boundaries.

@@ -1,7 +1,7 @@
 [project]
-name = "cpgf-generators"
+name = "agfb-generators"
 version = "0.0.1"
-description = "Batched, GPU-accelerated §1.1 synthetic generators for the CPGF benchmark"
+description = "Batched analytic image generators for the Analytic Gradient Filter Benchmark"
 authors = [{ name = "J.C. Vaught" }]
 requires-python = ">=3.11"
 
@@ -13,6 +13,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "bandit>=1.9.4",
+    "check-unicode>=0.6.0",
     "pytest>=8.0",
     "radon>=6.0.1",
     "ruff>=0.7",
@@ -35,12 +36,20 @@ torch = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
-[tool.ty.src]
-exclude = ["tests/test_pipeline_integration.py"]
-
 [tool.ruff]
 line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
-ignore = ["E741"]  # `I` is the intensity field, per §1.1 math notation
+ignore = ["E741"]  # `I` is the intensity field in the analytic formulas.
+
+[tool.check-unicode]
+check-confusables = true
+severity = "error"
+exclude-patterns = [
+    ".git/*",
+    ".pytest_cache/*",
+    ".ruff_cache/*",
+    ".venv/*",
+    "**/__pycache__/*",
+]

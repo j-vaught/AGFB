@@ -1,14 +1,15 @@
-"""2D polynomial surface (§1.1 `polynomial`, sanity-only).
+"""Two-dimensional polynomial field generator.
 
-For CPGF basis recovery: a degree-`d_p` polynomial sampled on the grid is
-exactly reconstructible by CPGF at degree `d >= d_p` to numerical precision.
+Polynomial fields provide exact closed-form gradients with configurable degree
+and mixed terms, making them useful for checking whether filters reproduce
+known local Taylor structure.
 """
 
 from __future__ import annotations
 
 import torch
 
-from cpgf_generators.base import Frame, coord_grid, pack
+from agfb_generators.base import Frame, coord_grid, pack
 
 
 def polynomial(
@@ -22,11 +23,11 @@ def polynomial(
 ) -> Frame:
     """Render a batched two-dimensional polynomial surface.
 
-    CPGF uses this sanity-only generator to check exact polynomial basis
-    recovery. Each `coeffs[b, i, j]` value is the coefficient of `x^i y^j`;
-    terms with `i + j` outside the supported degree are ignored, and `scale`
-    controls coordinate magnitude before the intensity and analytic gradient
-    are evaluated.
+    AGFB uses polynomial fields to test exact low-order structure and mixed
+    partial behavior. Each `coeffs[b, i, j]` value is the coefficient of
+    `x^i y^j`; terms with `i + j` outside the supported degree are ignored,
+    and `scale` controls coordinate magnitude before the intensity and
+    analytic gradient are evaluated.
     """
     if coeffs.ndim != 3:
         raise ValueError(f"coeffs must have shape (B, d_p+1, d_p+1), got {tuple(coeffs.shape)}")

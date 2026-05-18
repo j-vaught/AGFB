@@ -1,11 +1,11 @@
-"""Two parallel opposite-sign edges (§1.1 `smoothed_bar`)."""
+"""Two parallel opposite-sign smoothed edges."""
 
 from __future__ import annotations
 
 import torch
 
-from cpgf_generators.base import Frame, Numeric, pack
-from cpgf_generators.smoothed_step import smoothed_step
+from agfb_generators.base import Frame, Numeric, pack
+from agfb_generators.smoothed_step import smoothed_step
 
 
 def smoothed_bar(
@@ -22,7 +22,7 @@ def smoothed_bar(
 ) -> Frame:
     """Render a batched soft bar as two opposite smoothed edges.
 
-    CPGF uses this to test paired-edge behavior over a finite-width band. The
+    AGFB uses this to test paired-edge behavior over a finite-width band. The
     function calls `smoothed_step` at `x0 - width_px / 2` and
     `x0 + width_px / 2` with opposite contrasts, then sums the two returned
     frames into one intensity and analytic-gradient field.

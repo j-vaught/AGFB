@@ -1,7 +1,7 @@
-"""Bit-identical regression check against the PGF_paper prototype.
+"""Bit-identical regression check for the smoothed-step reference formula.
 
-Re-implements the prototype's `SmoothedStep.render` inline (no import path
-back into the sibling repo) and asserts batch-size-1 output matches.
+Re-implements the closed-form smoothed-step render inline and asserts the
+package output matches for batch size one.
 """
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ import math
 
 import torch
 
-from cpgf_generators import smoothed_step
+from agfb_generators import smoothed_step
 
 
-def _prototype_render(
+def _reference_render(
     height: int,
     width: int,
     theta_rad: float,
@@ -22,11 +22,10 @@ def _prototype_render(
     sigma_e: float,
     device: torch.device,
 ) -> dict[str, torch.Tensor]:
-    """Render the reference smoothed step formula used by regression tests.
+    """Render the reference smoothed-step formula used by regression tests.
 
-    The tests use this local copy of the prototype math to prove the package
-    `smoothed_step` output remains bit-identical without importing sibling
-    benchmark modules.
+    The tests use this local copy of the closed-form math to prove the package
+    `smoothed_step` output remains bit-identical for scalar rendering.
     """
     c_t, s_t = math.cos(theta_rad), math.sin(theta_rad)
     cx, cy = (width - 1) / 2.0, (height - 1) / 2.0
@@ -42,12 +41,12 @@ def _prototype_render(
     return {"I": I, "gx": gmag * c_t, "gy": gmag * s_t}
 
 
-def test_smoothed_step_matches_prototype_bitwise_at_b1() -> None:
-    """Verify the scalar CPGF smoothed-step frame matches the prototype exactly."""
+def test_smoothed_step_matches_reference_bitwise_at_b1() -> None:
+    """Verify the scalar AGFB smoothed-step frame matches the reference exactly."""
     device = torch.device("cpu")
     H = W = 256
     theta = math.radians(30.0)
-    ref = _prototype_render(H, W, theta, x0=0.0, contrast=1.0, sigma_e=2.0, device=device)
+    ref = _reference_render(H, W, theta, x0=0.0, contrast=1.0, sigma_e=2.0, device=device)
     out = smoothed_step(H, W, theta_rad=theta, x0=0.0, contrast=1.0, sigma_e=2.0, device=device)
     assert out.I.shape == (1, H, W)
     assert out.g.shape == (1, 2, H, W)

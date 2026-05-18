@@ -1,4 +1,4 @@
-"""Single-frequency grating (§1.1 `sinusoid`)."""
+"""Single-frequency sinusoidal grating generator."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import math
 
 import torch
 
-from cpgf_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
+from agfb_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
 
 
 def sinusoid(
@@ -22,10 +22,9 @@ def sinusoid(
 ) -> Frame:
     """Render a batched single-frequency sinusoidal grating.
 
-    CPGF uses this to probe frequency and orientation response, and the
-    diagnostic grating stacks call it per band. The frequency is in
-    cycles/pixel, and the returned `Frame` includes the analytic derivative
-    of `I = c * sin(2 pi f * p . n_hat + phase)`.
+    AGFB uses this to probe frequency and orientation response. The frequency
+    is in cycles/pixel, and the returned `Frame` includes the analytic
+    derivative of `I = c * sin(2 pi f * p . n_hat + phase)`.
     """
     device = device or torch.device("cpu")
     B = infer_batch_size(freq, theta_rad, contrast, phase)

@@ -1,10 +1,10 @@
-"""1D Gaussian ridge (§1.1 `gaussian_ridge`)."""
+"""One-dimensional Gaussian ridge generator."""
 
 from __future__ import annotations
 
 import torch
 
-from cpgf_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
+from agfb_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
 
 
 def gaussian_ridge(
@@ -20,7 +20,7 @@ def gaussian_ridge(
 ) -> Frame:
     """Render a batched one-dimensional Gaussian ridge.
 
-    CPGF uses this to test oriented ridge-like gradients. It projects pixels
+    AGFB uses this to test oriented ridge-like gradients. It projects pixels
     onto `u = p . n_hat - u0`, evaluates
     `I = c * exp(-u^2 / (2 sigma^2))`, and returns the analytic gradient along
     the ridge normal.
