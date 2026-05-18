@@ -22,7 +22,10 @@ from cpgf_metrics import (
     a1_nrmse,
     a2_angular_mae,
     a3_tail_vector_error,
+    b1_localization_offset,
+    b2_tangential_normal_leak,
     b3_magnitude_bias,
+    b4_edge_fwhm,
     c1_noise_gain,
     c2_tail_spurious_grad,
     magnitude,
@@ -108,6 +111,20 @@ def test_phase1_clean_smoothed_step(gens, filters) -> None:
     assert bias_dog < bias_cd, (
         "DoG(σ=4) on a σ=2 step should under-read more than central_difference"
     )
+
+    # Axis-B profile-shape metrics on a clean step: central_difference is
+    # ~well-localized and narrow; DoG(σ=4) is widely smoothed.
+    b1_cd = b1_localization_offset(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    b1_dog = b1_localization_offset(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
+    assert 0.0 <= b1_cd < 1.0
+    assert 0.0 <= b1_dog < 2.0
+
+    b4_cd = b4_edge_fwhm(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    b4_dog = b4_edge_fwhm(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
+    assert b4_dog > b4_cd, "DoG(σ=4) should widen the cross-edge response"
+
+    b2_cd = b2_tangential_normal_leak(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    assert b2_cd < -10.0, f"oblique-edge T-to-N leak {b2_cd:.1f} dB looks too high"
 
 
 def test_phase1_noise_only_input(filters) -> None:
