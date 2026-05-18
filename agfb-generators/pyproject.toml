@@ -14,6 +14,7 @@ dependencies = [
 dev = [
     "bandit>=1.9.4",
     "check-unicode>=0.6.0",
+    "ipykernel>=6.29",
     "pytest>=8.0",
     "radon>=6.0.1",
     "ruff>=0.7",

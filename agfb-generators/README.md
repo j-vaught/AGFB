@@ -18,7 +18,7 @@ a batched output of shape `(B, H, W)` for intensity and `(B, 2, H, W)` for the g
 
 ```
 uv sync
-uv run check-unicode README.md pyproject.toml uv.lock docs/**/*.md docs/**/*.typ docs/**/*.bib agfb_generators/*.py tests/*.py
+uv run check-unicode README.md pyproject.toml uv.lock *.ipynb docs/**/*.md docs/**/*.typ docs/**/*.bib agfb_generators/*.py tests/*.py
 uv run ruff format .
 uv run ruff check . --fix
 uv run ty check .
