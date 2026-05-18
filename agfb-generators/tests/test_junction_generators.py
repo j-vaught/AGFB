@@ -1,0 +1,119 @@
+"""Tests for softened junction generators."""
+
+from __future__ import annotations
+
+import math
+
+import torch
+
+from agfb_generators.junction_truth import junction_mask
+from agfb_generators.l_junction import hard_l_junction, smoothed_l_junction
+from agfb_generators.t_junction import hard_t_junction, smoothed_t_junction
+from agfb_generators.x_junction import hard_x_junction, smoothed_x_junction
+from agfb_generators.y_junction import hard_y_junction, smoothed_y_junction
+from tests.test_analytic_gradients import _check_signal_mask
+
+
+def test_smoothed_junction_gradients_match_fd() -> None:
+    """Check smoothed junction gradients against finite differences."""
+    cases = [
+        ("l", smoothed_l_junction, math.radians(15.0)),
+        ("t", smoothed_t_junction, math.radians(20.0)),
+        ("y", smoothed_y_junction, math.radians(10.0)),
+        ("x", smoothed_x_junction, math.radians(12.0)),
+    ]
+    for name, fn, theta in cases:
+        frame = fn(
+            256,
+            256,
+            arm_width_px=28.0,
+            theta_rad=theta,
+            x0=0.25,
+            y0=-0.25,
+            sigma_e=4.0,
+        )
+        _check_signal_mask(frame, rel_tol=3e-3, name=f"smoothed_{name}_junction")
+
+
+def test_hard_junction_gradients_match_fd_relaxed() -> None:
+    """Check hard junction gradients at the relaxed tolerance their width requires."""
+    cases = [
+        ("l", hard_l_junction, math.radians(15.0)),
+        ("t", hard_t_junction, math.radians(20.0)),
+        ("y", hard_y_junction, math.radians(10.0)),
+        ("x", hard_x_junction, math.radians(12.0)),
+    ]
+    for name, fn, theta in cases:
+        frame = fn(
+            256,
+            256,
+            arm_width_px=28.0,
+            theta_rad=theta,
+            x0=0.25,
+            y0=-0.25,
+        )
+        _check_signal_mask(frame, rel_tol=3e-1, name=f"hard_{name}_junction")
+
+
+def test_junction_intensity_is_bounded() -> None:
+    """Verify smooth union output stays within the requested contrast range."""
+    frame = smoothed_x_junction(
+        96,
+        112,
+        arm_width_px=18.0,
+        theta_rad=math.radians(18.0),
+        contrast=2.5,
+        sigma_e=3.0,
+    )
+    assert frame.I.shape == (1, 96, 112)
+    assert frame.g.shape == (1, 2, 96, 112)
+    assert float(frame.I.min()) >= 0.0
+    assert float(frame.I.max()) <= 2.5
+
+
+def test_junction_mask_shape_dtype_and_center() -> None:
+    """Check the scalar junction truth mask contract."""
+    mask = junction_mask(33, 35, x0=0.0, y0=0.0, radius_px=4.0)
+    assert mask.shape == (33, 35)
+    assert mask.dtype == torch.bool
+    assert bool(mask[16, 17])
+    assert not bool(mask[0, 0])
+
+
+def test_smoothed_junction_batched_consistent_with_scalar() -> None:
+    """Verify batched junction rendering matches repeated scalar renders."""
+    H = 80
+    W = 84
+    thetas = torch.tensor([0.0, math.radians(22.5), math.radians(45.0)])
+    widths = torch.tensor([10.0, 14.0, 18.0])
+    x0 = torch.tensor([0.0, 1.0, -1.5])
+    y0 = torch.tensor([0.0, -0.75, 1.25])
+    contrast = torch.tensor([1.0, 0.75, 1.25])
+    sigma = torch.tensor([2.0, 3.0, 4.0])
+
+    out = smoothed_t_junction(
+        H,
+        W,
+        arm_width_px=widths,
+        theta_rad=thetas,
+        x0=x0,
+        y0=y0,
+        contrast=contrast,
+        sigma_e=sigma,
+    )
+    assert out.I.shape == (3, H, W)
+
+    for i in range(3):
+        single = smoothed_t_junction(
+            H,
+            W,
+            arm_width_px=float(widths[i]),
+            theta_rad=float(thetas[i]),
+            x0=float(x0[i]),
+            y0=float(y0[i]),
+            contrast=float(contrast[i]),
+            sigma_e=float(sigma[i]),
+        )
+        assert torch.allclose(out.I[i], single.I[0], rtol=1e-6, atol=1e-6)
+        assert torch.allclose(out.gx[i], single.gx[0], rtol=1e-6, atol=1e-6)
+        assert torch.allclose(out.gy[i], single.gy[0], rtol=1e-6, atol=1e-6)
