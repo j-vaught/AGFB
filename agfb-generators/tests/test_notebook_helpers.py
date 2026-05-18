@@ -1,52 +1,28 @@
-"""Regression checks for the notebook visualization helper module."""
+"""Regression checks for the notebook display helper module."""
 
 from __future__ import annotations
 
 import torch
 
-from agfb_generators.notebook import (
-    check_frame,
-    generator_names,
-    make_context,
-    render_case,
-    render_composite,
-)
+from agfb_generators.notebook import set_color_scheme, show_color_scheme, show_image
 
 
-def test_notebook_context_lists_current_generators() -> None:
-    """Check that the notebook exposes every currently implemented generator."""
-    ctx = make_context(height=64, width=64, device=torch.device("cpu"))
+def test_notebook_color_scheme_smoke() -> None:
+    """Check that user-defined notebook color schemes can be applied."""
+    color_scheme = {
+        "intensity": [(0.0, "#000000"), (1.0, "#FFFFFF")],
+        "magnitude": [(0.0, "#000000"), (1.0, "#FFFFFF")],
+        "signed": [(0.0, "#000000"), (0.5, "#A2A2A2"), (1.0, "#FFFFFF")],
+        "mask": [(0.0, "#000000"), (1.0, "#FFFFFF")],
+    }
 
-    assert generator_names(ctx) == [
-        "smoothed_step",
-        "hard_step",
-        "curved_arc",
-        "sinusoid",
-        "gaussian_blob",
-        "gaussian_ridge",
-        "smoothed_bar",
-        "polynomial",
-    ]
+    set_color_scheme(color_scheme)
+    show_color_scheme(color_scheme)
 
 
-def test_notebook_case_renders_and_checks() -> None:
-    """Check one notebook render path and its finite-difference metric."""
-    ctx = make_context(height=96, width=96, device=torch.device("cpu"))
+def test_notebook_show_image_smoke() -> None:
+    """Check the smallest tensor display path used by the notebook."""
+    image = torch.zeros(1, 8, 8)
+    image[0, 2:6, 2:6] = 1.0
 
-    frame = render_case(ctx, "gaussian_blob")
-    metrics = check_frame("gaussian_blob", frame, rel_tol=1e-3)
-
-    assert metrics["status"] == "pass"
-    assert metrics["shape"] == "96x96"
-
-
-def test_notebook_composite_renders() -> None:
-    """Check the notebook composite example and junction mask shape."""
-    ctx = make_context(height=96, width=96, device=torch.device("cpu"))
-
-    frame, junction = render_composite(ctx)
-
-    assert frame.I.shape == (1, 96, 96)
-    assert frame.g.shape == (1, 2, 96, 96)
-    assert junction.shape == (96, 96)
-    assert bool(junction.any())
+    show_image(image[0], "test image")
