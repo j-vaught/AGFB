@@ -10,6 +10,10 @@ API simple and avoids a tensor-of-rectangles interface. Pass a
 `list[CompositeRect]` per call.
 """
 
+# As an aside, this code is horrible, and I will not be using this in later versions.
+# the outputs are somewhat useless in real testing since they create hard step edges,
+# which may be unexpected.
+
 from __future__ import annotations
 
 from dataclasses import dataclass
