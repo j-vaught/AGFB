@@ -132,6 +132,37 @@ def generator_names(ctx: NotebookContext) -> list[str]:
     return [case.name for case in ctx.cases]
 
 
+def show_image(
+    values: torch.Tensor | np.ndarray,
+    title: str = "image",
+    *,
+    signed: bool = False,
+    kind: str = "intensity",
+) -> None:
+    """Display one tensor or array as a small inline notebook image."""
+
+    if isinstance(values, torch.Tensor):
+        image = values.detach().cpu().numpy()
+    else:
+        image = np.asarray(values)
+
+    palette = PALETTE_INTENSITY
+    if kind == "magnitude":
+        palette = PALETTE_MAGNITUDE
+    elif kind == "mask":
+        palette = PALETTE_MASK
+    elif signed:
+        palette = PALETTE_SIGNED
+
+    _display_html(
+        _section_html(
+            title,
+            "",
+            _figure(image.astype(np.float32), title, palette, symmetric=signed),
+        )
+    )
+
+
 def render_case(ctx: NotebookContext, name: str) -> Frame:
     """Render one named generator case without displaying it."""
 
@@ -516,10 +547,11 @@ def _mask_html(title: str, mask: torch.Tensor) -> str:
 
 
 def _section_html(title: str, description: str, body: str) -> str:
+    description_html = f"<p>{html.escape(description)}</p>" if description else ""
     return (
         "<section class='agfb-block'>"
         f"<h3>{html.escape(title)}</h3>"
-        f"<p>{html.escape(description)}</p>"
+        f"{description_html}"
         "<div class='agfb-grid'>" + body + "</div></section>"
     )
 
