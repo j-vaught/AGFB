@@ -2,15 +2,23 @@
 
 from cpgf_metrics.a1_nrmse import a1_nrmse
 from cpgf_metrics.a2_angular_mae import a2_angular_mae
+from cpgf_metrics.a3_tail_vector_error import a3_tail_vector_error
+from cpgf_metrics.b3_magnitude_bias import b3_magnitude_bias
 from cpgf_metrics.base import (
     magnitude,
     masks,
     unit_normal_from_truth,
 )
+from cpgf_metrics.c1_noise_gain import c1_noise_gain
+from cpgf_metrics.c2_tail_spurious_grad import c2_tail_spurious_grad
 
 __all__ = [
     "a1_nrmse",
     "a2_angular_mae",
+    "a3_tail_vector_error",
+    "b3_magnitude_bias",
+    "c1_noise_gain",
+    "c2_tail_spurious_grad",
     "magnitude",
     "masks",
     "unit_normal_from_truth",
