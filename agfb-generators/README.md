@@ -15,6 +15,23 @@ a batched output of shape `(B, H, W)` for intensity and `(B, 2, H, W)` for the g
 | `agfb_generators/` | Generator package (one module per generator + shared base + helpers). |
 | `tests/` | Numerical regression tests for analytic gradients and batched rendering. |
 
+## Available Generators
+
+| Family | Generators |
+|--------|------------|
+| Polynomial | `polynomial` |
+| Edges and transitions | `smoothed_step`, `hard_step`, `finite_ramp`, `smoothed_ramp`, `roof_profile`, `mach_band` |
+| Blobs and scale | `gaussian_blob`, `anisotropic_blob` |
+| Ridges and bars | `gaussian_ridge`, `smoothed_bar`, `asymmetric_ridge`, `curved_ridge` |
+| Circular boundaries | `curved_arc` |
+| Frequency fields | `sinusoid`, `chirp`, `gabor_packet` |
+| Junctions | `smoothed_l_junction`, `hard_l_junction`, `smoothed_t_junction`, `hard_t_junction`, `smoothed_y_junction`, `hard_y_junction`, `smoothed_x_junction`, `hard_x_junction` |
+| Vessels | `vessel_crossing`, `vessel_bifurcation` |
+
+Truth helpers are available for structures that need semantic masks or labels. Use
+`junction_mask`, `vessel_crossing_truth`, and `vessel_bifurcation_truth` when metrics need
+centerline, branch, radius, or junction-region maps in addition to the analytic gradients.
+
 ## Workflow
 
 ```
