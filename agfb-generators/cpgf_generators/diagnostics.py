@@ -19,11 +19,11 @@ def contrast_ramp(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Linear intensity ramp from -c/2 to +c/2 along `n_hat = (cos t, sin t)`.
+    """Render a single-frame linear contrast ramp.
 
-    Used for the contrast-linearity diagnostic: a linear ramp has constant
-    gradient `(c/W) * n_hat`, so any well-behaved filter must report a flat
-    response proportional to `c`.
+    CPGF diagnostics use this to check contrast linearity because the rendered
+    image has constant gradient `(c / max(H, W)) * n_hat`; filters should
+    return a flat response proportional to `contrast`.
     """
     device = device or torch.device("cpu")
     xx, yy = coord_grid(height, width, device, dtype)
@@ -48,10 +48,11 @@ def multi_freq_grating(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Vertical stack of bands, each band a `sinusoid` at one frequency.
+    """Render one diagnostic frame with stacked sinusoidal frequency bands.
 
-    Used for phase-linearity: peak-of-|grad| position must not shift across the
-    band for any linear-phase filter.
+    CPGF diagnostics use this to check phase linearity across frequencies. The
+    function calls `sinusoid` once per band, copies each band into a shared
+    frame, and keeps the analytic gradients aligned with the generated bands.
     """
     device = device or torch.device("cpu")
     if not freqs:
@@ -87,9 +88,10 @@ def constant_field(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Uniform-intensity field; gradient is identically zero everywhere.
+    """Render a single-frame constant-intensity field.
 
-    A perfect filter must return zero on every metric here.
+    CPGF diagnostics use this as a zero-gradient baseline; any nonzero filter
+    response on the returned frame is measurement error rather than signal.
     """
     device = device or torch.device("cpu")
     I = torch.full((1, height, width), float(value), device=device, dtype=dtype)

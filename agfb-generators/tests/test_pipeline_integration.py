@@ -29,6 +29,12 @@ _PROTOTYPES_DIR = Path("/Users/user/Documents/New project/PGF_paper/benchmark/pr
 
 @pytest.fixture(scope="module")
 def proto():
+    """Load the external prototype modules used by integration tests.
+
+    Pytest injects this fixture into the CPGF pipeline tests so they can compare
+    package output with the original prototype render, masks, filters, kernels,
+    and vector NRMSE metric when that sibling checkout is present.
+    """
     if not _PROTOTYPES_DIR.exists():
         pytest.skip(f"benchmark prototypes not present at {_PROTOTYPES_DIR}")
     sys.path.insert(0, str(_PROTOTYPES_DIR))
@@ -48,6 +54,7 @@ def proto():
 
 
 def test_smoothed_step_matches_actual_prototype_module(proto) -> None:
+    """Verify package `smoothed_step` matches the imported prototype renderer."""
     device = torch.device("cpu")
     H = W = 256
     theta = math.radians(30.0)
@@ -63,6 +70,7 @@ def test_smoothed_step_matches_actual_prototype_module(proto) -> None:
 
 
 def test_new_generator_feeds_prototype_pipeline_with_same_nrmse(proto) -> None:
+    """Verify CPGF prototype metrics accept the package frame without drift."""
     device = torch.device("cpu")
     H = W = 256
     theta = math.radians(30.0)

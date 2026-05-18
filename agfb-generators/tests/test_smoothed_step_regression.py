@@ -22,6 +22,12 @@ def _prototype_render(
     sigma_e: float,
     device: torch.device,
 ) -> dict[str, torch.Tensor]:
+    """Render the reference smoothed step formula used by regression tests.
+
+    The tests use this local copy of the prototype math to prove the package
+    `smoothed_step` output remains bit-identical without importing sibling
+    benchmark modules.
+    """
     c_t, s_t = math.cos(theta_rad), math.sin(theta_rad)
     cx, cy = (width - 1) / 2.0, (height - 1) / 2.0
     ys = torch.arange(height, device=device, dtype=torch.float32) - cy
@@ -37,6 +43,7 @@ def _prototype_render(
 
 
 def test_smoothed_step_matches_prototype_bitwise_at_b1() -> None:
+    """Verify the scalar CPGF smoothed-step frame matches the prototype exactly."""
     device = torch.device("cpu")
     H = W = 256
     theta = math.radians(30.0)
@@ -50,6 +57,7 @@ def test_smoothed_step_matches_prototype_bitwise_at_b1() -> None:
 
 
 def test_smoothed_step_batched_consistent_with_scalar() -> None:
+    """Verify batched smoothed-step rendering matches repeated scalar renders."""
     device = torch.device("cpu")
     H = W = 128
     thetas = torch.tensor([0.0, math.radians(22.5), math.radians(45.0), math.radians(90.0)])

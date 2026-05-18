@@ -18,7 +18,13 @@ def gaussian_ridge(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """`I = c * exp(-(u - u0)^2 / (2 sigma^2))` with `u = p . n_hat`."""
+    """Render a batched one-dimensional Gaussian ridge.
+
+    CPGF uses this to test oriented ridge-like gradients. It projects pixels
+    onto `u = p . n_hat - u0`, evaluates
+    `I = c * exp(-u^2 / (2 sigma^2))`, and returns the analytic gradient along
+    the ridge normal.
+    """
     device = device or torch.device("cpu")
     B = infer_batch_size(sigma, theta_rad, u0, contrast)
     xx, yy = coord_grid(height, width, device, dtype)

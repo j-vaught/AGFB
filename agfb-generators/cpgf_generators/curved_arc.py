@@ -28,7 +28,12 @@ def curved_arc(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """`I = c * Phi((r0 - rho) / sigma_e)` with `rho = ||p - center||`."""
+    """Render a batched radially smoothed disc boundary.
+
+    CPGF uses this to test curved edge recovery. It evaluates
+    `I = c * Phi((r0 - rho) / sigma_e)` with `rho = ||p - center||` and
+    returns the inward analytic gradient of that transition.
+    """
     device = device or torch.device("cpu")
     B = infer_batch_size(r0, xc, yc, contrast, sigma_e)
     xx, yy = coord_grid(height, width, device, dtype)

@@ -21,11 +21,12 @@ from cpgf_generators.base import Frame, coord_grid
 
 @dataclass(frozen=True)
 class CompositeRect:
-    """One rectangular component region of a composite frame.
+    """Describe one rectangular region in a composite CPGF frame.
 
-    `frame` must already be rendered at `(1, H, W)` for the full image; the
-    rectangle defines which pixels actually adopt its values. Coordinates are
-    integer pixel indices; the rectangle is `[row_lo:row_hi, col_lo:col_hi]`.
+    `composite` consumes these records to copy pixels from pre-rendered
+    component frames into an axis-aligned partition. The `frame` is rendered at
+    full image size with batch size one, while the integer bounds select the
+    rows and columns that adopt that component.
     """
 
     row_lo: int
@@ -44,9 +45,12 @@ def composite(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> tuple[Frame, torch.Tensor]:
-    """Assemble a single composite frame.
+    """Assemble one CPGF composite frame and its junction mask.
 
-    Returns a `Frame` of batch size 1 plus a boolean junction mask `(H, W)`.
+    CPGF uses composites to combine disjoint component generators in one image.
+    The function copies each `CompositeRect` into a zero-filled frame, rejects
+    out-of-bounds or batched components, and returns the assembled `Frame`
+    plus a boolean `(H, W)` mask around component boundaries.
     """
     device = device or torch.device("cpu")
     I = torch.zeros(1, height, width, device=device, dtype=dtype)
@@ -73,8 +77,12 @@ def composite(
 
 
 def _boundary_mask(owner: torch.Tensor, *, radius: int) -> torch.Tensor:
-    """Pixels within `radius` (Chebyshev) of any cell whose neighbor has a
-    different owner. Computed with a single max-pool dilation."""
+    """Mark pixels near ownership changes in a composite partition.
+
+    `composite` uses this private helper after filling the owner map. It first
+    marks cells with a 4-connected neighbor from a different component, then
+    dilates that set by a Chebyshev `radius` with max pooling.
+    """
     if owner.ndim != 2:
         raise ValueError(f"owner must be 2-D, got shape {tuple(owner.shape)}")
     h, w = owner.shape

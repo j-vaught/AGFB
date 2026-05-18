@@ -22,39 +22,70 @@ Numeric = float | int | torch.Tensor
 
 @dataclass(frozen=True)
 class Frame:
-    """One batch of generator output."""
+    """Container for one rendered generator batch.
 
-    I: torch.Tensor  # (B, H, W)
-    g: torch.Tensor  # (B, 2, H, W) — channel 0 is g_x, channel 1 is g_y
+    Every CPGF generator returns a `Frame` so benchmark code, diagnostics, and
+    tests can keep the intensity image and analytic ground-truth gradients
+    together with a shared shape convention.
+    """
+
+    I: torch.Tensor  # (B, H, W) - image intensity.
+    g: torch.Tensor  # (B, 2, H, W) - channel 0 is g_x, channel 1 is g_y.
 
     @property
     def gx(self) -> torch.Tensor:
+        """Return the horizontal gradient channel.
+
+        CPGF metrics and regression tests use this as the analytic `g_x`
+        reference for a rendered frame.
+        """
         return self.g[:, 0]
 
     @property
     def gy(self) -> torch.Tensor:
+        """Return the vertical gradient channel.
+
+        CPGF metrics and regression tests use this as the analytic `g_y`
+        reference for a rendered frame.
+        """
         return self.g[:, 1]
 
     @property
     def batch_size(self) -> int:
+        """Return the number of images carried by this frame.
+
+        Composite assembly and tests use this to distinguish scalar renders
+        from batched generator output.
+        """
         return int(self.I.shape[0])
 
     @property
     def height(self) -> int:
+        """Return the image height in pixels.
+
+        Callers use this with `width` when validating frame shape against a
+        requested CPGF render size.
+        """
         return int(self.I.shape[1])
 
     @property
     def width(self) -> int:
+        """Return the image width in pixels.
+
+        Callers use this with `height` when validating frame shape against a
+        requested CPGF render size.
+        """
         return int(self.I.shape[2])
 
 
 def coord_grid(
     height: int, width: int, device: torch.device, dtype: torch.dtype = torch.float32
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return centered pixel coordinates of shape (H, W) each.
+    """Return centered pixel coordinate grids for a CPGF render.
 
-    `xx[i, j]` is the horizontal offset of pixel (i, j) from the image center;
-    `yy[i, j]` is the vertical offset. Both have the same shape `(H, W)`.
+    Generator functions use `xx` and `yy` to evaluate analytic intensity and
+    gradient formulas on the shared convention where the origin is the image
+    center, `+x` points right, and `+y` points down.
     """
     cx = (width - 1) / 2.0
     cy = (height - 1) / 2.0
@@ -70,10 +101,11 @@ def as_batch(
     device: torch.device,
     dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor:
-    """Broadcast `value` to a `(B, 1, 1)` tensor on the target device.
+    """Convert one scalar generator parameter into a broadcast batch tensor.
 
-    Accepts a Python scalar (broadcast across the batch) or a 1-D tensor of
-    length `B`. Anything else raises `ValueError`.
+    Public CPGF generators use this after `infer_batch_size` so Python scalars
+    and 1-D tensor parameters share the `(B, 1, 1)` shape needed for vectorized
+    PyTorch formulas.
     """
     if isinstance(value, torch.Tensor):
         t = value.to(device=device, dtype=dtype)
@@ -89,17 +121,30 @@ def as_batch(
 
 
 def gauss_phi(u: torch.Tensor) -> torch.Tensor:
-    """Standard-normal PDF."""
+    """Evaluate the standard-normal probability density function.
+
+    Smoothed edge and curved-arc generators use this as the closed-form
+    derivative of the Gaussian cumulative distribution function.
+    """
     return (1.0 / math.sqrt(2.0 * math.pi)) * torch.exp(-0.5 * u * u)
 
 
 def gauss_Phi(u: torch.Tensor) -> torch.Tensor:
-    """Standard-normal CDF."""
+    """Evaluate the standard-normal cumulative distribution function.
+
+    CPGF edge-like generators use this to turn signed distance fields into
+    smoothly band-limited intensity transitions.
+    """
     return 0.5 * (1.0 + torch.erf(u / math.sqrt(2.0)))
 
 
 def infer_batch_size(*params: Numeric) -> int:
-    """Pick the batch size from the first 1-D tensor parameter; default 1."""
+    """Infer the render batch size from generator parameters.
+
+    Public generators use the first 1-D tensor parameter as `B`; scalar-only
+    calls default to one frame so the same code path handles scalar and batched
+    CPGF scenes.
+    """
     for p in params:
         if isinstance(p, torch.Tensor) and p.ndim == 1:
             return int(p.shape[0])
@@ -107,6 +152,10 @@ def infer_batch_size(*params: Numeric) -> int:
 
 
 def pack(I: torch.Tensor, gx: torch.Tensor, gy: torch.Tensor) -> Frame:
-    """Stack intensity and the two gradient channels into a `Frame`."""
+    """Package intensity and gradient tensors into the shared `Frame` type.
+
+    Generators call this at return time so downstream CPGF metrics, diagnostics,
+    and tests always receive contiguous tensors in the same channel order.
+    """
     g = torch.stack((gx, gy), dim=1)
     return Frame(I=I.contiguous(), g=g.contiguous())

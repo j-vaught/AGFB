@@ -20,12 +20,13 @@ def polynomial(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Render a batch of polynomials.
+    """Render a batched two-dimensional polynomial surface.
 
-    `coeffs[b, i, j]` is the coefficient of `x^i y^j`. The polynomial is
-    truncated at `i + j > d_p` (entries above the anti-diagonal are ignored).
-    `scale` divides the centered pixel coordinates so the magnitudes remain
-    well-behaved on a 4096² grid; default 1.0 keeps the analytic definition.
+    CPGF uses this sanity-only generator to check exact polynomial basis
+    recovery. Each `coeffs[b, i, j]` value is the coefficient of `x^i y^j`;
+    terms with `i + j` outside the supported degree are ignored, and `scale`
+    controls coordinate magnitude before the intensity and analytic gradient
+    are evaluated.
     """
     if coeffs.ndim != 3:
         raise ValueError(f"coeffs must have shape (B, d_p+1, d_p+1), got {tuple(coeffs.shape)}")

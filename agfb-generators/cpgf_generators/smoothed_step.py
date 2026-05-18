@@ -27,9 +27,12 @@ def smoothed_step(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Batched smoothed step.
+    """Render a batched Gaussian-smoothed straight edge.
 
-    `I = c * Phi((p . n_hat - x0) / sigma_e)` with normal `n_hat = (cos t, sin t)`.
+    CPGF uses this as the canonical straight-edge generator, and `hard_step`,
+    `smoothed_bar`, and regression tests build on it. It evaluates
+    `I = c * Phi((p . n_hat - x0) / sigma_e)` and returns the intensity plus
+    the analytic gradient aligned with `n_hat = (cos t, sin t)`.
     """
     device = device or torch.device("cpu")
     B = infer_batch_size(theta_rad, x0, contrast, sigma_e)

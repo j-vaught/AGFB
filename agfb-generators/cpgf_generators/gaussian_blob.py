@@ -18,7 +18,13 @@ def gaussian_blob(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """`I = c * exp(-((x-x0)^2 + (y-y0)^2) / (2 sigma^2))`."""
+    """Render a batched isotropic Gaussian peak.
+
+    CPGF uses this blob scene to test gradients whose direction changes across
+    the image. It evaluates
+    `I = c * exp(-((x - x0)^2 + (y - y0)^2) / (2 sigma^2))` and returns the
+    closed-form spatial gradient of that surface.
+    """
     device = device or torch.device("cpu")
     B = infer_batch_size(sigma, x0, y0, contrast)
     xx, yy = coord_grid(height, width, device, dtype)

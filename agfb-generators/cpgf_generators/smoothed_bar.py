@@ -20,7 +20,13 @@ def smoothed_bar(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Sum of two `smoothed_step` instances at `x0 +- width_px / 2`, opposite signs."""
+    """Render a batched soft bar as two opposite smoothed edges.
+
+    CPGF uses this to test paired-edge behavior over a finite-width band. The
+    function calls `smoothed_step` at `x0 - width_px / 2` and
+    `x0 + width_px / 2` with opposite contrasts, then sums the two returned
+    frames into one intensity and analytic-gradient field.
+    """
     half = width_px / 2.0 if isinstance(width_px, torch.Tensor) else float(width_px) / 2.0
     if isinstance(x0, torch.Tensor):
         x_pos = x0 + half

@@ -23,6 +23,12 @@ def hard_step(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
+    """Render the sharpest band-limited straight edge used by CPGF.
+
+    This is a wrapper around `smoothed_step` with `sigma_e = 0.5` px. CPGF
+    uses it where the specification calls for a hard edge while still keeping
+    the rendered intensity and analytic gradients numerically resolvable.
+    """
     return smoothed_step(
         height,
         width,
