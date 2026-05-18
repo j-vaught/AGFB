@@ -1,0 +1,44 @@
+[project]
+name = "cpgf-filters"
+version = "0.0.1"
+description = "Batched, GPU-accelerated comparator gradient filters for the CPGF benchmark"
+authors = [{ name = "J.C. Vaught" }]
+requires-python = ">=3.11"
+
+dependencies = [
+    "torch>=2.4,<2.7",
+    "numpy>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.7",
+    "ty>=0.0.1a8",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ty.src]
+exclude = ["tests/test_pipeline_integration.py"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E741"]  # `I` is the intensity field, per spec math notation
