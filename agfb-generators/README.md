@@ -11,6 +11,7 @@ a batched output of shape `(B, H, W)` for intensity and `(B, 2, H, W)` for the g
 
 | Folder | Purpose |
 |--------|---------|
+| `agfb_generator_visual_check.ipynb` | Interactive notebook for generator checks and visual inspection. |
 | `agfb_generators/` | Generator package (one module per generator + shared base + helpers). |
 | `tests/` | Numerical regression tests for analytic gradients and batched rendering. |
 
