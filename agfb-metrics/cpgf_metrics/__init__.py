@@ -11,6 +11,7 @@ from cpgf_metrics.b5_sidelobe_ratio import b5_sidelobe_ratio
 from cpgf_metrics.base import (
     magnitude,
     masks,
+    ridge_mask_from_truth,
     unit_normal_from_truth,
 )
 from cpgf_metrics.c1_noise_gain import c1_noise_gain
@@ -29,5 +30,6 @@ __all__ = [
     "c2_tail_spurious_grad",
     "magnitude",
     "masks",
+    "ridge_mask_from_truth",
     "unit_normal_from_truth",
 ]

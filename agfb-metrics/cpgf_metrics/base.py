@@ -84,6 +84,60 @@ def unit_normal_from_truth(
     return n_x, n_y
 
 
+def ridge_mask_from_truth(
+    g_x_t: torch.Tensor,
+    g_y_t: torch.Tensor,
+    signal_mask: torch.Tensor,
+    *,
+    step: float = 1.0,
+) -> torch.Tensor:
+    """Non-max-suppress `|grad_true|` along its own normal direction.
+
+    A pixel `p` is a ridge pixel iff
+        |grad_true|(p) >= |grad_true|(p + step*n̂_p)  and
+        |grad_true|(p) >= |grad_true|(p - step*n̂_p)
+    where `n̂_p` is the unit normal at `p`. The two neighbour values are
+    bilinear-sampled via `grid_sample`, so the test is independent of the
+    normal's quadrant.
+
+    Restricted to `signal_mask`; returns `(B, H, W)` bool on the same device.
+    Pixels with `|grad_true| == 0` are never ridges.
+    """
+    check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
+    if signal_mask.shape != g_x_t.shape:
+        raise ValueError(f"signal_mask {signal_mask.shape} must match (B, H, W) {g_x_t.shape}")
+    if step <= 0:
+        raise ValueError(f"step must be positive; got {step}")
+
+    B, H, W = g_x_t.shape
+    device = g_x_t.device
+    mag = magnitude(g_x_t, g_y_t)
+    n_x, n_y = unit_normal_from_truth(g_x_t, g_y_t)
+
+    ys = torch.arange(H, device=device, dtype=torch.float32).view(1, H, 1).expand(B, H, W)
+    xs = torch.arange(W, device=device, dtype=torch.float32).view(1, 1, W).expand(B, H, W)
+
+    def _sample_neighbor(sign: float) -> torch.Tensor:
+        sample_y = ys + sign * step * n_y
+        sample_x = xs + sign * step * n_x
+        norm_x = 2.0 * sample_x / max(W - 1, 1) - 1.0
+        norm_y = 2.0 * sample_y / max(H - 1, 1) - 1.0
+        grid = torch.stack([norm_x, norm_y], dim=-1)  # (B, H, W, 2)
+        sampled = F.grid_sample(
+            mag.unsqueeze(1),
+            grid,
+            mode="bilinear",
+            padding_mode="border",
+            align_corners=True,
+        )
+        return sampled.squeeze(1)
+
+    mag_plus = _sample_neighbor(+1.0)
+    mag_minus = _sample_neighbor(-1.0)
+    is_local_max = (mag >= mag_plus) & (mag >= mag_minus) & (mag > 0)
+    return signal_mask & is_local_max
+
+
 def masked_reduce_per_image(
     values: torch.Tensor,
     mask: torch.Tensor,
