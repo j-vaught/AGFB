@@ -12,6 +12,7 @@ from cpgf_filters import (
     DoG,
     FreemanAdelsonG1,
     SavitzkyGolay,
+    central_difference,
     farid_simoncelli_5,
     prewitt_3,
     roberts,
@@ -24,6 +25,7 @@ from cpgf_filters import (
 
 def _filters():
     return [
+        ("central_difference", lambda I: central_difference(I)),
         ("sobel_3", lambda I: sobel_3(I)),
         ("sobel_5", lambda I: sobel_5(I)),
         ("sobel_7", lambda I: sobel_7(I)),

@@ -1,5 +1,6 @@
 """Batched, GPU-accelerated comparator gradient filters for the CPGF benchmark."""
 
+from cpgf_filters.central_difference import central_difference
 from cpgf_filters.cpgf import CPGF, cpgf_kernels
 from cpgf_filters.derivative_of_gaussian import DoG
 from cpgf_filters.farid_simoncelli import farid_simoncelli_5
@@ -15,6 +16,7 @@ __all__ = [
     "DoG",
     "FreemanAdelsonG1",
     "SavitzkyGolay",
+    "central_difference",
     "cpgf_kernels",
     "farid_simoncelli_5",
     "prewitt_3",
