@@ -30,8 +30,12 @@ torch = [
     { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [tool.ruff]
 line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E741"]  # `I` is the intensity field, per §1.1 math notation
