@@ -32,14 +32,87 @@ def test_chirp_gradient_matches_fd() -> None:
     f = chirp(
         256,
         256,
-        freq0=0.025,
-        chirp_rate=0.00012,
-        theta_rad=math.radians(33.0),
-        contrast=0.9,
-        phase=0.3,
-        u0=4.0,
+        base_frequency=0.025,
+        frequency_slope=0.00012,
+        angle_rad=math.radians(33.0),
+        amplitude=0.9,
+        phase_rad=0.3,
+        center_offset=4.0,
     )
     _check_signal_mask(f, rel_tol=1e-2, name="chirp")
+
+
+def test_chirp_batched_consistent_with_scalar() -> None:
+    """Verify batched chirps match repeated scalar renders."""
+    height = 80
+    width = 84
+    base_frequency = torch.tensor([0.012, 0.018, 0.024])
+    frequency_slope = torch.tensor([0.00008, 0.00012, 0.00016])
+    angle = torch.tensor([0.0, math.radians(25.0), math.radians(50.0)])
+    amplitude = torch.tensor([0.7, 1.0, 1.3])
+    phase = torch.tensor([0.0, 0.25, 0.5])
+    center_offset = torch.tensor([-3.0, 0.0, 3.0])
+
+    out = chirp(
+        height,
+        width,
+        base_frequency=base_frequency,
+        frequency_slope=frequency_slope,
+        angle_rad=angle,
+        amplitude=amplitude,
+        phase_rad=phase,
+        center_offset=center_offset,
+    )
+
+    assert out.I.shape == (3, height, width)
+    assert out.g.shape == (3, 2, height, width)
+    for i in range(3):
+        single = chirp(
+            height,
+            width,
+            base_frequency=float(base_frequency[i]),
+            frequency_slope=float(frequency_slope[i]),
+            angle_rad=float(angle[i]),
+            amplitude=float(amplitude[i]),
+            phase_rad=float(phase[i]),
+            center_offset=float(center_offset[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_chirp_infers_tensor_device() -> None:
+    """Verify tensor inputs keep chirp output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = chirp(
+        20,
+        24,
+        base_frequency=torch.tensor([0.012, 0.018], device=device),
+        frequency_slope=0.00012,
+        angle_rad=torch.tensor([0.0, math.radians(25.0)], device=device),
+        amplitude=1.0,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_chirp_honors_requested_device() -> None:
+    """Verify scalar chirp inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = chirp(
+        20,
+        24,
+        base_frequency=0.012,
+        frequency_slope=0.00012,
+        angle_rad=math.radians(25.0),
+        amplitude=1.0,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_gabor_packet_gradient_matches_fd() -> None:
@@ -153,9 +226,9 @@ def test_scale_frequency_generator_shapes_and_dtype() -> None:
     ch = chirp(
         H,
         W,
-        freq0=torch.tensor([0.015, 0.02], dtype=dtype),
-        chirp_rate=0.0001,
-        theta_rad=0.2,
+        base_frequency=torch.tensor([0.015, 0.02], dtype=dtype),
+        frequency_slope=0.0001,
+        angle_rad=0.2,
         dtype=dtype,
     )
     gabor = gabor_packet(

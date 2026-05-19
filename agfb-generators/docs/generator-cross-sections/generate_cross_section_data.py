@@ -230,9 +230,9 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: chirp(
                 HEIGHT,
                 WIDTH,
-                freq0=0.008,
-                chirp_rate=0.00035,
-                theta_rad=0.0,
+                base_frequency=0.008,
+                frequency_slope=0.00035,
+                angle_rad=0.0,
             ),
         ),
         GeneratorSpec(
