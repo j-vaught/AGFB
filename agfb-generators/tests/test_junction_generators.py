@@ -140,6 +140,19 @@ def test_junction_intensity_is_bounded() -> None:
     assert float(frame.I.max()) <= 2.5
 
 
+def test_smoothed_l_junction_center_is_filled() -> None:
+    """Verify the shared junction endpoint does not dip below the arm interior."""
+    frame = smoothed_l_junction(
+        65,
+        65,
+        arm_width=18.0,
+        angle_rad=0.0,
+        edge_sigma=3.0,
+    )
+
+    assert float(frame.I[0, 32, 32]) > 0.98
+
+
 def test_junction_mask_shape_dtype_and_center() -> None:
     """Check the scalar junction truth mask contract."""
     mask = junction_mask(33, 35, center_x=0.0, center_y=0.0, radius_px=4.0)

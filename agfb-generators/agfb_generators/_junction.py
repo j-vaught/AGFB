@@ -31,7 +31,13 @@ def junction_frame(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Render a smooth union of half-infinite softened bar arms."""
+    """Render a smooth union of half-infinite softened bar arms.
+
+    The arm endpoint gates fade to 0.5 exactly at the junction point. A
+    softened circular cap with radius `arm_width_px / 2` is included in the
+    union so connected junctions do not develop a low-intensity notch at the
+    shared endpoint.
+    """
     device = device or torch.device("cpu")
     B = infer_batch_size(*angles_rad, arm_width_px, x0, y0, contrast, sigma_e)
     xx, yy = coord_grid(height, width, device, dtype)
@@ -75,6 +81,18 @@ def junction_frame(
         arm_masks.append(A)
         arm_gx.append(gradA_x)
         arm_gy.append(gradA_y)
+
+    cap_radius = half_w
+    cap_distance = torch.sqrt(dx * dx + dy * dy).clamp_min(1e-12)
+    cap_arg = (cap_radius - cap_distance) / s
+    cap_mask = gauss_Phi(cap_arg)
+    cap_derivative = -(gauss_phi(cap_arg) / s)
+    cap_gx = cap_derivative * (dx / cap_distance)
+    cap_gy = cap_derivative * (dy / cap_distance)
+
+    arm_masks.append(cap_mask)
+    arm_gx.append(cap_gx)
+    arm_gy.append(cap_gy)
 
     one_minus = [1.0 - A for A in arm_masks]
     prod_all = torch.ones_like(arm_masks[0])
