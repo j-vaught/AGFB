@@ -193,9 +193,9 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: asymmetric_ridge(
                 HEIGHT,
                 WIDTH,
-                sigma_neg=6.0,
-                sigma_pos=18.0,
-                theta_rad=0.0,
+                negative_sigma=6.0,
+                positive_sigma=18.0,
+                angle_rad=0.0,
             ),
         ),
         GeneratorSpec(

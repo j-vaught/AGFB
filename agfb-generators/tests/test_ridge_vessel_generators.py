@@ -52,10 +52,10 @@ def test_asymmetric_ridge_gradient_matches_fd() -> None:
     f = asymmetric_ridge(
         256,
         256,
-        sigma_neg=8.0,
-        sigma_pos=9.0,
-        theta_rad=math.radians(25.0),
-        u0=1.25,
+        negative_sigma=8.0,
+        positive_sigma=9.0,
+        angle_rad=math.radians(25.0),
+        center_offset=1.25,
     )
     _check_signal_mask(f, rel_tol=1e-3, name="asymmetric_ridge")
 
@@ -106,19 +106,19 @@ def test_vessel_bifurcation_gradient_matches_fd() -> None:
 
 
 def test_asymmetric_ridge_batched_consistent_with_scalar() -> None:
-    theta = torch.tensor([0.0, math.radians(30.0), math.radians(70.0)])
-    sigma_neg = torch.tensor([3.0, 4.0, 5.0])
-    sigma_pos = torch.tensor([6.0, 7.0, 8.0])
-    u0 = torch.tensor([-2.0, 0.0, 2.0])
-    contrast = torch.tensor([0.75, 1.0, 1.25])
+    angle = torch.tensor([0.0, math.radians(30.0), math.radians(70.0)])
+    negative_sigma = torch.tensor([3.0, 4.0, 5.0])
+    positive_sigma = torch.tensor([6.0, 7.0, 8.0])
+    center_offset = torch.tensor([-2.0, 0.0, 2.0])
+    amplitude = torch.tensor([0.75, 1.0, 1.25])
     out = asymmetric_ridge(
         96,
         112,
-        sigma_neg=sigma_neg,
-        sigma_pos=sigma_pos,
-        theta_rad=theta,
-        u0=u0,
-        contrast=contrast,
+        negative_sigma=negative_sigma,
+        positive_sigma=positive_sigma,
+        angle_rad=angle,
+        center_offset=center_offset,
+        amplitude=amplitude,
     )
     assert out.I.shape == (3, 96, 112)
     assert out.g.shape == (3, 2, 96, 112)
@@ -126,15 +126,30 @@ def test_asymmetric_ridge_batched_consistent_with_scalar() -> None:
         single = asymmetric_ridge(
             96,
             112,
-            sigma_neg=float(sigma_neg[i]),
-            sigma_pos=float(sigma_pos[i]),
-            theta_rad=float(theta[i]),
-            u0=float(u0[i]),
-            contrast=float(contrast[i]),
+            negative_sigma=float(negative_sigma[i]),
+            positive_sigma=float(positive_sigma[i]),
+            angle_rad=float(angle[i]),
+            center_offset=float(center_offset[i]),
+            amplitude=float(amplitude[i]),
         )
         assert torch.equal(out.I[i], single.I[0])
         assert torch.equal(out.gx[i], single.gx[0])
         assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_asymmetric_ridge_infers_tensor_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = asymmetric_ridge(
+        20,
+        22,
+        negative_sigma=torch.tensor([3.0, 4.0], device=device),
+        positive_sigma=7.0,
+        angle_rad=torch.tensor([0.0, math.radians(25.0)], device=device),
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_vessel_crossing_truth_shapes_and_dtypes() -> None:
