@@ -163,8 +163,8 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: anisotropic_blob(
                 HEIGHT,
                 WIDTH,
-                sigma_u=30.0,
-                sigma_v=10.0,
+                length_sigma=30.0,
+                width_sigma=10.0,
                 theta_rad=0.0,
             ),
         ),

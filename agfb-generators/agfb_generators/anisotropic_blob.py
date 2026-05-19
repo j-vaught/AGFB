@@ -11,12 +11,12 @@ def anisotropic_blob(
     height: int,
     width: int,
     *,
-    sigma_u: Numeric,
-    sigma_v: Numeric,
+    length_sigma: Numeric,
+    width_sigma: Numeric,
     theta_rad: Numeric,
-    x0: Numeric = 0.0,
-    y0: Numeric = 0.0,
-    contrast: Numeric = 1.0,
+    center_x: Numeric = 0.0,
+    center_y: Numeric = 0.0,
+    amplitude: Numeric = 1.0,
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
@@ -28,45 +28,53 @@ def anisotropic_blob(
     only circular ones. The visual notebook and cross-section document also use
     this function as the oriented blob example.
 
-    `sigma_u` controls the standard deviation along the rotated `u` axis, and
-    `sigma_v` controls the standard deviation along the perpendicular `v` axis.
-    `theta_rad` is the angle of the `u` axis measured in radians from the
-    image `+x` direction. `x0` and `y0` move the blob center in the shared
-    centered coordinate system.
+    `length_sigma` controls the standard deviation along the rotated long
+    axis, and `width_sigma` controls the standard deviation along the
+    perpendicular short axis. `theta_rad` is the long-axis angle in radians,
+    measured from the image `+x` direction. `center_x` and `center_y` move the
+    blob center in the shared centered coordinate system. `amplitude` is the
+    peak intensity at the blob center.
 
     The rendered intensity is
-    `contrast * exp(-0.5 * ((u / sigma_u)^2 + (v / sigma_v)^2))`, where
+    `amplitude * exp(-0.5 * ((u / length_sigma)^2 + (v / width_sigma)^2))`, where
     `u = dx * cos(theta) + dy * sin(theta)` and
     `v = -dx * sin(theta) + dy * cos(theta)`. The returned `Frame` contains the
     intensity image and the closed-form gradients with respect to image `x`
     and `y`.
     """
     device = device or torch.device("cpu")
-    batch_size = infer_batch_size(sigma_u, sigma_v, theta_rad, x0, y0, contrast)
+    batch_size = infer_batch_size(
+        length_sigma,
+        width_sigma,
+        theta_rad,
+        center_x,
+        center_y,
+        amplitude,
+    )
     xx, yy = coord_grid(height, width, device, dtype)
 
-    sigma_u_batch = as_batch(sigma_u, batch_size, device, dtype)
-    sigma_v_batch = as_batch(sigma_v, batch_size, device, dtype)
+    length_sigma_batch = as_batch(length_sigma, batch_size, device, dtype)
+    width_sigma_batch = as_batch(width_sigma, batch_size, device, dtype)
     theta_batch = as_batch(theta_rad, batch_size, device, dtype)
-    center_x = as_batch(x0, batch_size, device, dtype)
-    center_y = as_batch(y0, batch_size, device, dtype)
-    contrast_batch = as_batch(contrast, batch_size, device, dtype)
+    center_x_batch = as_batch(center_x, batch_size, device, dtype)
+    center_y_batch = as_batch(center_y, batch_size, device, dtype)
+    amplitude_batch = as_batch(amplitude, batch_size, device, dtype)
 
     cos_theta = torch.cos(theta_batch)
     sin_theta = torch.sin(theta_batch)
-    x_from_center = xx - center_x
-    y_from_center = yy - center_y
+    x_from_center = xx - center_x_batch
+    y_from_center = yy - center_y_batch
     u_coord = x_from_center * cos_theta + y_from_center * sin_theta
     v_coord = -x_from_center * sin_theta + y_from_center * cos_theta
-    sigma_u_sq = sigma_u_batch * sigma_u_batch
-    sigma_v_sq = sigma_v_batch * sigma_v_batch
+    length_sigma_sq = length_sigma_batch * length_sigma_batch
+    width_sigma_sq = width_sigma_batch * width_sigma_batch
 
-    exponent = -0.5 * ((u_coord * u_coord) / sigma_u_sq + (v_coord * v_coord) / sigma_v_sq)
-    intensity = contrast_batch * torch.exp(exponent)
+    exponent = -0.5 * ((u_coord * u_coord) / length_sigma_sq + (v_coord * v_coord) / width_sigma_sq)
+    intensity = amplitude_batch * torch.exp(exponent)
     gradient_x = intensity * (
-        -(u_coord / sigma_u_sq) * cos_theta + (v_coord / sigma_v_sq) * sin_theta
+        -(u_coord / length_sigma_sq) * cos_theta + (v_coord / width_sigma_sq) * sin_theta
     )
     gradient_y = intensity * (
-        -(u_coord / sigma_u_sq) * sin_theta - (v_coord / sigma_v_sq) * cos_theta
+        -(u_coord / length_sigma_sq) * sin_theta - (v_coord / width_sigma_sq) * cos_theta
     )
     return pack(intensity, gradient_x, gradient_y)

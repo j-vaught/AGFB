@@ -17,12 +17,12 @@ def test_anisotropic_blob_gradient_matches_fd() -> None:
     f = anisotropic_blob(
         256,
         256,
-        sigma_u=18.0,
-        sigma_v=11.0,
+        length_sigma=18.0,
+        width_sigma=11.0,
         theta_rad=math.radians(27.0),
-        x0=3.0,
-        y0=-5.0,
-        contrast=1.3,
+        center_x=3.0,
+        center_y=-5.0,
+        amplitude=1.3,
     )
     _check_signal_mask(f, rel_tol=1e-3, name="anisotropic_blob")
 
@@ -63,22 +63,22 @@ def test_anisotropic_blob_batched_consistent_with_scalar() -> None:
     """Verify batched anisotropic blobs match repeated scalar renders."""
     H = 96
     W = 80
-    sigma_u = torch.tensor([7.0, 10.0, 13.0])
-    sigma_v = torch.tensor([4.0, 6.0, 8.0])
+    length_sigma = torch.tensor([7.0, 10.0, 13.0])
+    width_sigma = torch.tensor([4.0, 6.0, 8.0])
     theta = torch.tensor([0.0, math.radians(25.0), math.radians(70.0)])
-    x0 = torch.tensor([-3.0, 0.0, 4.0])
-    y0 = torch.tensor([2.0, -5.0, 1.0])
-    contrast = torch.tensor([0.7, 1.0, 1.4])
+    center_x = torch.tensor([-3.0, 0.0, 4.0])
+    center_y = torch.tensor([2.0, -5.0, 1.0])
+    amplitude = torch.tensor([0.7, 1.0, 1.4])
 
     out = anisotropic_blob(
         H,
         W,
-        sigma_u=sigma_u,
-        sigma_v=sigma_v,
+        length_sigma=length_sigma,
+        width_sigma=width_sigma,
         theta_rad=theta,
-        x0=x0,
-        y0=y0,
-        contrast=contrast,
+        center_x=center_x,
+        center_y=center_y,
+        amplitude=amplitude,
     )
 
     assert out.I.shape == (3, H, W)
@@ -87,12 +87,12 @@ def test_anisotropic_blob_batched_consistent_with_scalar() -> None:
         single = anisotropic_blob(
             H,
             W,
-            sigma_u=float(sigma_u[i]),
-            sigma_v=float(sigma_v[i]),
+            length_sigma=float(length_sigma[i]),
+            width_sigma=float(width_sigma[i]),
             theta_rad=float(theta[i]),
-            x0=float(x0[i]),
-            y0=float(y0[i]),
-            contrast=float(contrast[i]),
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            amplitude=float(amplitude[i]),
         )
         assert torch.equal(out.I[i], single.I[0])
         assert torch.equal(out.gx[i], single.gx[0])
@@ -108,8 +108,8 @@ def test_scale_frequency_generator_shapes_and_dtype() -> None:
     blob = anisotropic_blob(
         H,
         W,
-        sigma_u=torch.tensor([5.0, 6.0], dtype=dtype),
-        sigma_v=3.5,
+        length_sigma=torch.tensor([5.0, 6.0], dtype=dtype),
+        width_sigma=3.5,
         theta_rad=torch.tensor([0.1, 0.4], dtype=dtype),
         dtype=dtype,
     )
