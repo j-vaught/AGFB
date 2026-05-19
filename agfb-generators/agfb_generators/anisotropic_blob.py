@@ -20,34 +20,53 @@ def anisotropic_blob(
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Render a batched rotated anisotropic Gaussian peak.
+    """Render a batched Gaussian peak with independent rotated axis scales.
 
-    The local coordinates are
+    The benchmark uses this generator when a smooth blob has a known position,
+    orientation, and two different spatial scales. It is useful for checking
+    whether a filter responds consistently to elongated targets rather than
+    only circular ones. The visual notebook and cross-section document also use
+    this function as the oriented blob example.
+
+    `sigma_u` controls the standard deviation along the rotated `u` axis, and
+    `sigma_v` controls the standard deviation along the perpendicular `v` axis.
+    `theta_rad` is the angle of the `u` axis measured in radians from the
+    image `+x` direction. `x0` and `y0` move the blob center in the shared
+    centered coordinate system.
+
+    The rendered intensity is
+    `contrast * exp(-0.5 * ((u / sigma_u)^2 + (v / sigma_v)^2))`, where
     `u = dx * cos(theta) + dy * sin(theta)` and
-    `v = -dx * sin(theta) + dy * cos(theta)`. The returned gradient is the
-    closed-form spatial derivative of the rendered intensity.
+    `v = -dx * sin(theta) + dy * cos(theta)`. The returned `Frame` contains the
+    intensity image and the closed-form gradients with respect to image `x`
+    and `y`.
     """
     device = device or torch.device("cpu")
-    B = infer_batch_size(sigma_u, sigma_v, theta_rad, x0, y0, contrast)
+    batch_size = infer_batch_size(sigma_u, sigma_v, theta_rad, x0, y0, contrast)
     xx, yy = coord_grid(height, width, device, dtype)
 
-    su = as_batch(sigma_u, B, device, dtype)
-    sv = as_batch(sigma_v, B, device, dtype)
-    theta = as_batch(theta_rad, B, device, dtype)
-    x0_b = as_batch(x0, B, device, dtype)
-    y0_b = as_batch(y0, B, device, dtype)
-    c = as_batch(contrast, B, device, dtype)
+    sigma_u_batch = as_batch(sigma_u, batch_size, device, dtype)
+    sigma_v_batch = as_batch(sigma_v, batch_size, device, dtype)
+    theta_batch = as_batch(theta_rad, batch_size, device, dtype)
+    center_x = as_batch(x0, batch_size, device, dtype)
+    center_y = as_batch(y0, batch_size, device, dtype)
+    contrast_batch = as_batch(contrast, batch_size, device, dtype)
 
-    cos_t = torch.cos(theta)
-    sin_t = torch.sin(theta)
-    dx = xx - x0_b
-    dy = yy - y0_b
-    u = dx * cos_t + dy * sin_t
-    v = -dx * sin_t + dy * cos_t
-    su2 = su * su
-    sv2 = sv * sv
+    cos_theta = torch.cos(theta_batch)
+    sin_theta = torch.sin(theta_batch)
+    x_from_center = xx - center_x
+    y_from_center = yy - center_y
+    u_coord = x_from_center * cos_theta + y_from_center * sin_theta
+    v_coord = -x_from_center * sin_theta + y_from_center * cos_theta
+    sigma_u_sq = sigma_u_batch * sigma_u_batch
+    sigma_v_sq = sigma_v_batch * sigma_v_batch
 
-    I = c * torch.exp(-0.5 * ((u * u) / su2 + (v * v) / sv2))
-    gx = I * (-(u / su2) * cos_t + (v / sv2) * sin_t)
-    gy = I * (-(u / su2) * sin_t - (v / sv2) * cos_t)
-    return pack(I, gx, gy)
+    exponent = -0.5 * ((u_coord * u_coord) / sigma_u_sq + (v_coord * v_coord) / sigma_v_sq)
+    intensity = contrast_batch * torch.exp(exponent)
+    gradient_x = intensity * (
+        -(u_coord / sigma_u_sq) * cos_theta + (v_coord / sigma_v_sq) * sin_theta
+    )
+    gradient_y = intensity * (
+        -(u_coord / sigma_u_sq) * sin_theta - (v_coord / sigma_v_sq) * cos_theta
+    )
+    return pack(intensity, gradient_x, gradient_y)
