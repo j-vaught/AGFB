@@ -154,7 +154,7 @@ def _specs() -> list[GeneratorSpec]:
             family="Blobs And Scale",
             name="gaussian_blob",
             title="Gaussian Blob Generator",
-            render=lambda: gaussian_blob(HEIGHT, WIDTH, sigma=18.0),
+            render=lambda: gaussian_blob(HEIGHT, WIDTH, scale_sigma=18.0),
         ),
         GeneratorSpec(
             family="Blobs And Scale",

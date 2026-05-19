@@ -162,8 +162,75 @@ def test_sinusoid_gradient_matches_fd() -> None:
 
 def test_gaussian_blob_gradient_matches_fd() -> None:
     """Check the Gaussian blob gradient whose direction varies over the image."""
-    f = gaussian_blob(256, 256, sigma=8.0)
+    f = gaussian_blob(256, 256, scale_sigma=8.0)
     _check_signal_mask(f, rel_tol=1e-3, name="gaussian_blob")
+
+
+def test_gaussian_blob_batched_consistent_with_scalar() -> None:
+    """Verify batched Gaussian blobs match repeated scalar renders."""
+    height = 72
+    width = 76
+    scale_sigma = torch.tensor([6.0, 9.0, 12.0])
+    center_x = torch.tensor([-5.0, 0.0, 4.0])
+    center_y = torch.tensor([3.0, -4.0, 2.0])
+    amplitude = torch.tensor([0.75, 1.0, 1.25])
+
+    out = gaussian_blob(
+        height,
+        width,
+        scale_sigma=scale_sigma,
+        center_x=center_x,
+        center_y=center_y,
+        amplitude=amplitude,
+    )
+
+    assert out.I.shape == (3, height, width)
+    assert out.g.shape == (3, 2, height, width)
+    for i in range(3):
+        single = gaussian_blob(
+            height,
+            width,
+            scale_sigma=float(scale_sigma[i]),
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            amplitude=float(amplitude[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_gaussian_blob_honors_requested_device() -> None:
+    """Verify scalar Gaussian blob inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = gaussian_blob(
+        20,
+        24,
+        scale_sigma=6.0,
+        center_x=-3.0,
+        center_y=2.0,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_gaussian_blob_infers_tensor_device() -> None:
+    """Verify tensor inputs keep Gaussian blob output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = gaussian_blob(
+        20,
+        24,
+        scale_sigma=torch.tensor([6.0, 9.0], device=device),
+        center_x=torch.tensor([-3.0, 3.0], device=device),
+        center_y=2.0,
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_gaussian_ridge_gradient_matches_fd() -> None:
