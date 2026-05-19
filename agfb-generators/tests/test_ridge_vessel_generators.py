@@ -64,13 +64,81 @@ def test_curved_ridge_gradient_matches_fd() -> None:
     f = curved_ridge(
         256,
         256,
-        sigma=6.0,
-        theta_rad=math.radians(35.0),
+        width_sigma=6.0,
+        angle_rad=math.radians(35.0),
         curvature=0.002,
-        u0=-2.0,
-        v0=3.0,
+        normal_offset=-2.0,
+        tangent_offset=3.0,
     )
     _check_signal_mask(f, rel_tol=1e-3, name="curved_ridge")
+
+
+def test_curved_ridge_batched_consistent_with_scalar() -> None:
+    width_sigma = torch.tensor([4.0, 5.0, 6.0])
+    angle = torch.tensor([0.0, math.radians(20.0), math.radians(40.0)])
+    curvature = torch.tensor([0.002, 0.003, 0.004])
+    normal_offset = torch.tensor([-2.0, 0.0, 2.0])
+    tangent_offset = torch.tensor([4.0, 0.0, -4.0])
+    amplitude = torch.tensor([0.75, 1.0, 1.25])
+
+    out = curved_ridge(
+        96,
+        112,
+        width_sigma=width_sigma,
+        angle_rad=angle,
+        curvature=curvature,
+        normal_offset=normal_offset,
+        tangent_offset=tangent_offset,
+        amplitude=amplitude,
+    )
+
+    assert out.I.shape == (3, 96, 112)
+    assert out.g.shape == (3, 2, 96, 112)
+    for i in range(3):
+        single = curved_ridge(
+            96,
+            112,
+            width_sigma=float(width_sigma[i]),
+            angle_rad=float(angle[i]),
+            curvature=float(curvature[i]),
+            normal_offset=float(normal_offset[i]),
+            tangent_offset=float(tangent_offset[i]),
+            amplitude=float(amplitude[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_curved_ridge_honors_requested_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = curved_ridge(
+        20,
+        22,
+        width_sigma=4.0,
+        angle_rad=math.radians(20.0),
+        curvature=0.003,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_curved_ridge_infers_tensor_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = curved_ridge(
+        20,
+        22,
+        width_sigma=torch.tensor([4.0, 5.0], device=device),
+        angle_rad=torch.tensor([0.0, math.radians(25.0)], device=device),
+        curvature=0.003,
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_vessel_crossing_gradient_matches_fd() -> None:

@@ -205,8 +205,8 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: curved_ridge(
                 HEIGHT,
                 WIDTH,
-                sigma=6.0,
-                theta_rad=0.0,
+                width_sigma=6.0,
+                angle_rad=0.0,
                 curvature=0.004,
             ),
             row_offset=48,
