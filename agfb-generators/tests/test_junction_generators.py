@@ -141,7 +141,7 @@ def test_junction_intensity_is_bounded() -> None:
 
 
 def test_smoothed_l_junction_center_is_filled() -> None:
-    """Verify the shared junction endpoint does not dip below the arm interior."""
+    """Verify the junction endpoint fills without a behind-corner bulge."""
     frame = smoothed_l_junction(
         65,
         65,
@@ -151,6 +151,7 @@ def test_smoothed_l_junction_center_is_filled() -> None:
     )
 
     assert float(frame.I[0, 32, 32]) > 0.98
+    assert float(frame.I[0, 23, 23]) < 0.05
 
 
 def test_junction_mask_shape_dtype_and_center() -> None:

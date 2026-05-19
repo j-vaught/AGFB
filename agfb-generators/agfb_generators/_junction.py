@@ -33,10 +33,10 @@ def junction_frame(
 ) -> Frame:
     """Render a smooth union of half-infinite softened bar arms.
 
-    The arm endpoint gates fade to 0.5 exactly at the junction point. A
-    softened circular cap with radius `arm_width_px / 2` is included in the
-    union so connected junctions do not develop a low-intensity notch at the
-    shared endpoint.
+    The arm endpoint gates fade to 0.5 exactly at the junction point. A small
+    directional endpoint fill is included in the union so connected junctions
+    do not develop a low-intensity notch at the shared endpoint or a round blob
+    behind all arms.
     """
     device = device or torch.device("cpu")
     B = infer_batch_size(*angles_rad, arm_width_px, x0, y0, contrast, sigma_e)
@@ -56,6 +56,9 @@ def junction_frame(
     arm_masks: list[torch.Tensor] = []
     arm_gx: list[torch.Tensor] = []
     arm_gy: list[torch.Tensor] = []
+    cap_gate_masks: list[torch.Tensor] = []
+    cap_gate_gx: list[torch.Tensor] = []
+    cap_gate_gy: list[torch.Tensor] = []
 
     for alpha in alphas:
         ex = torch.cos(alpha)
@@ -68,49 +71,70 @@ def junction_frame(
         qp = (q + half_w) / s
         qm = (q - half_w) / s
         ts = t / s
+        cap_ts = ts + 1.0
 
         R = gauss_Phi(qp) - gauss_Phi(qm)
         H = gauss_Phi(ts)
+        H_cap = gauss_Phi(cap_ts)
         A = R * H
 
         dR_dq = (gauss_phi(qp) - gauss_phi(qm)) / s
         dH_dt = gauss_phi(ts) / s
+        dH_cap_dt = gauss_phi(cap_ts) / s
         gradA_x = H * dR_dq * mx + R * dH_dt * ex
         gradA_y = H * dR_dq * my + R * dH_dt * ey
 
         arm_masks.append(A)
         arm_gx.append(gradA_x)
         arm_gy.append(gradA_y)
+        cap_gate_masks.append(H_cap)
+        cap_gate_gx.append(dH_cap_dt * ex)
+        cap_gate_gy.append(dH_cap_dt * ey)
 
-    cap_radius = half_w
+    cap_gate, cap_gate_grad_x, cap_gate_grad_y = _smooth_union(
+        cap_gate_masks, cap_gate_gx, cap_gate_gy
+    )
+    cap_radius = torch.minimum(half_w, 2.0 * s)
     cap_distance = torch.sqrt(dx * dx + dy * dy).clamp_min(1e-12)
     cap_arg = (cap_radius - cap_distance) / s
-    cap_mask = gauss_Phi(cap_arg)
+    cap_disk = gauss_Phi(cap_arg)
     cap_derivative = -(gauss_phi(cap_arg) / s)
-    cap_gx = cap_derivative * (dx / cap_distance)
-    cap_gy = cap_derivative * (dy / cap_distance)
+    cap_disk_gx = cap_derivative * (dx / cap_distance)
+    cap_disk_gy = cap_derivative * (dy / cap_distance)
+    cap_mask = cap_disk * cap_gate
+    cap_gx = cap_disk_gx * cap_gate + cap_disk * cap_gate_grad_x
+    cap_gy = cap_disk_gy * cap_gate + cap_disk * cap_gate_grad_y
 
     arm_masks.append(cap_mask)
     arm_gx.append(cap_gx)
     arm_gy.append(cap_gy)
 
-    one_minus = [1.0 - A for A in arm_masks]
-    prod_all = torch.ones_like(arm_masks[0])
-    for term in one_minus:
-        prod_all = prod_all * term
-
-    gradU_x = torch.zeros_like(prod_all)
-    gradU_y = torch.zeros_like(prod_all)
-    for i in range(len(arm_masks)):
-        prod_except = torch.ones_like(prod_all)
-        for j, term in enumerate(one_minus):
-            if i != j:
-                prod_except = prod_except * term
-        gradU_x = gradU_x + arm_gx[i] * prod_except
-        gradU_y = gradU_y + arm_gy[i] * prod_except
-
-    U = 1.0 - prod_all
+    U, gradU_x, gradU_y = _smooth_union(arm_masks, arm_gx, arm_gy)
     I = c * U
     gx = c * gradU_x
     gy = c * gradU_y
     return pack(I, gx, gy)
+
+
+def _smooth_union(
+    masks: Sequence[torch.Tensor],
+    gradients_x: Sequence[torch.Tensor],
+    gradients_y: Sequence[torch.Tensor],
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return smooth union values and gradients for independent mask terms."""
+    one_minus = [1.0 - mask for mask in masks]
+    prod_all = torch.ones_like(masks[0])
+    for term in one_minus:
+        prod_all = prod_all * term
+
+    gradient_x = torch.zeros_like(prod_all)
+    gradient_y = torch.zeros_like(prod_all)
+    for i in range(len(masks)):
+        prod_except = torch.ones_like(prod_all)
+        for j, term in enumerate(one_minus):
+            if i != j:
+                prod_except = prod_except * term
+        gradient_x = gradient_x + gradients_x[i] * prod_except
+        gradient_y = gradient_y + gradients_y[i] * prod_except
+
+    return 1.0 - prod_all, gradient_x, gradient_y
