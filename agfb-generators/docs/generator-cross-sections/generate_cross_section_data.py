@@ -116,7 +116,7 @@ def _specs() -> list[GeneratorSpec]:
             family="Edges And Transitions",
             name="finite_ramp",
             title="Finite Ramp Generator",
-            render=lambda: finite_ramp(HEIGHT, WIDTH, width_px=80.0, theta_rad=0.0),
+            render=lambda: finite_ramp(HEIGHT, WIDTH, ramp_width=80.0, angle_rad=0.0),
         ),
         GeneratorSpec(
             family="Edges And Transitions",

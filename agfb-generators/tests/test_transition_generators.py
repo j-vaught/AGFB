@@ -15,7 +15,7 @@ from tests.test_analytic_gradients import _check_signal_mask
 
 def test_finite_ramp_horizontal_profile_and_gradient() -> None:
     """Check the exact sampled profile away from the ramp kinks."""
-    f = finite_ramp(5, 17, width_px=8.0, theta_rad=0.0, contrast=2.0)
+    f = finite_ramp(5, 17, ramp_width=8.0, angle_rad=0.0, amplitude=2.0)
     x = torch.arange(17, dtype=torch.float32) - 8.0
     expected_I = 2.0 * torch.clamp((x + 4.0) / 8.0, min=0.0, max=1.0)
     expected_gx = torch.where((x > -4.0) & (x < 4.0), torch.tensor(0.25), torch.tensor(0.0))
@@ -25,6 +25,71 @@ def test_finite_ramp_horizontal_profile_and_gradient() -> None:
     assert torch.equal(f.I[0, 2], expected_I)
     assert torch.equal(f.gx[0, 2], expected_gx)
     assert torch.count_nonzero(f.gy) == 0
+
+
+def test_finite_ramp_batched_consistent_with_scalar() -> None:
+    """Verify batched finite-ramp rendering matches scalar calls."""
+    height = 48
+    width = 52
+    ramp_width = torch.tensor([12.0, 18.0, 24.0])
+    angle = torch.tensor([0.0, math.radians(20.0), math.radians(45.0)])
+    center_offset = torch.tensor([-3.0, 0.0, 5.0])
+    amplitude = torch.tensor([0.8, 1.0, 1.2])
+
+    out = finite_ramp(
+        height,
+        width,
+        ramp_width=ramp_width,
+        angle_rad=angle,
+        center_offset=center_offset,
+        amplitude=amplitude,
+    )
+
+    assert out.I.shape == (3, height, width)
+    assert out.g.shape == (3, 2, height, width)
+    for i in range(3):
+        single = finite_ramp(
+            height,
+            width,
+            ramp_width=float(ramp_width[i]),
+            angle_rad=float(angle[i]),
+            center_offset=float(center_offset[i]),
+            amplitude=float(amplitude[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_finite_ramp_honors_requested_device() -> None:
+    """Verify scalar finite-ramp inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = finite_ramp(
+        20,
+        22,
+        ramp_width=8.0,
+        angle_rad=0.25,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_finite_ramp_infers_tensor_device() -> None:
+    """Verify tensor inputs keep finite-ramp output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = finite_ramp(
+        20,
+        22,
+        ramp_width=torch.tensor([8.0, 12.0], device=device),
+        angle_rad=torch.tensor([0.0, 0.25], device=device),
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_roof_profile_horizontal_profile_and_gradient() -> None:
@@ -126,6 +191,13 @@ def test_smoothed_ramp_batched_consistent_with_scalar() -> None:
 
 def test_transition_generators_preserve_requested_dtype() -> None:
     """Check dtype propagation for the direct formulas."""
+    finite = finite_ramp(
+        16,
+        16,
+        ramp_width=8.0,
+        angle_rad=0.25,
+        dtype=torch.float64,
+    )
     f = smoothed_ramp(
         16,
         16,
@@ -134,5 +206,7 @@ def test_transition_generators_preserve_requested_dtype() -> None:
         sigma_e=2.0,
         dtype=torch.float64,
     )
+    assert finite.I.dtype == torch.float64
+    assert finite.g.dtype == torch.float64
     assert f.I.dtype == torch.float64
     assert f.g.dtype == torch.float64
