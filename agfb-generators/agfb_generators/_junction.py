@@ -102,13 +102,18 @@ def _smooth_min_signed_distance(
     gradients_y: Sequence[torch.Tensor],
     blend_width: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Blend SDF components with a narrow differentiable soft minimum."""
+    """Blend SDF gradients without expanding the zero-distance boundary."""
     distance_stack = torch.stack(tuple(distances), dim=0)
     gradient_x_stack = torch.stack(tuple(gradients_x), dim=0)
     gradient_y_stack = torch.stack(tuple(gradients_y), dim=0)
 
+    hard_min_distance = torch.amin(distance_stack, dim=0)
+    relative_distance = distance_stack - hard_min_distance
+    tie_bias = blend_width * torch.logsumexp(-relative_distance / blend_width, dim=0)
     weights = torch.softmax(-distance_stack / blend_width, dim=0)
-    signed_distance = -blend_width * torch.logsumexp(-distance_stack / blend_width, dim=0)
+    signed_distance = (
+        -blend_width * torch.logsumexp(-distance_stack / blend_width, dim=0) + tie_bias
+    )
     gradient_x = torch.sum(weights * gradient_x_stack, dim=0)
     gradient_y = torch.sum(weights * gradient_y_stack, dim=0)
     return signed_distance, gradient_x, gradient_y
