@@ -73,11 +73,69 @@ def test_junction_intensity_is_bounded() -> None:
 
 def test_junction_mask_shape_dtype_and_center() -> None:
     """Check the scalar junction truth mask contract."""
-    mask = junction_mask(33, 35, x0=0.0, y0=0.0, radius_px=4.0)
+    mask = junction_mask(33, 35, center_x=0.0, center_y=0.0, radius_px=4.0)
     assert mask.shape == (33, 35)
     assert mask.dtype == torch.bool
     assert bool(mask[16, 17])
     assert not bool(mask[0, 0])
+
+
+def test_junction_mask_batched_consistent_with_scalar() -> None:
+    """Verify batched junction truth masks match repeated scalar masks."""
+    height = 33
+    width = 35
+    center_x = torch.tensor([-2.0, 0.0, 3.0])
+    center_y = torch.tensor([1.0, 0.0, -2.0])
+    radius = torch.tensor([3.0, 4.0, 5.0])
+
+    mask = junction_mask(
+        height,
+        width,
+        center_x=center_x,
+        center_y=center_y,
+        radius_px=radius,
+    )
+
+    assert mask.shape == (3, height, width)
+    assert mask.dtype == torch.bool
+    for i in range(3):
+        single = junction_mask(
+            height,
+            width,
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            radius_px=float(radius[i]),
+        )
+        assert torch.equal(mask[i], single)
+
+
+def test_junction_mask_honors_requested_device() -> None:
+    """Verify scalar junction truth masks render on the requested device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    mask = junction_mask(
+        20,
+        24,
+        center_x=-1.0,
+        center_y=2.0,
+        radius_px=5.0,
+        device=device,
+    )
+
+    assert mask.device == device
+
+
+def test_junction_mask_infers_tensor_device() -> None:
+    """Verify tensor inputs keep junction truth masks on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    mask = junction_mask(
+        20,
+        24,
+        center_x=torch.tensor([-1.0, 1.0], device=device),
+        center_y=2.0,
+        radius_px=5.0,
+    )
+
+    assert mask.device == device
 
 
 def test_smoothed_junction_batched_consistent_with_scalar() -> None:
