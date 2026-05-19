@@ -172,7 +172,7 @@ def _specs() -> list[GeneratorSpec]:
             family="Ridges And Bars",
             name="gaussian_ridge",
             title="Gaussian Ridge Generator",
-            render=lambda: gaussian_ridge(HEIGHT, WIDTH, sigma=10.0, theta_rad=0.0),
+            render=lambda: gaussian_ridge(HEIGHT, WIDTH, width_sigma=10.0, angle_rad=0.0),
         ),
         GeneratorSpec(
             family="Ridges And Bars",

@@ -235,8 +235,75 @@ def test_gaussian_blob_infers_tensor_device() -> None:
 
 def test_gaussian_ridge_gradient_matches_fd() -> None:
     """Check the oriented Gaussian ridge gradient used by AGFB ridge cases."""
-    f = gaussian_ridge(256, 256, sigma=4.0, theta_rad=math.radians(20.0))
+    f = gaussian_ridge(256, 256, width_sigma=4.0, angle_rad=math.radians(20.0))
     _check_signal_mask(f, rel_tol=1e-3, name="gaussian_ridge")
+
+
+def test_gaussian_ridge_batched_consistent_with_scalar() -> None:
+    """Verify batched Gaussian ridges match repeated scalar renders."""
+    height = 72
+    width = 76
+    width_sigma = torch.tensor([4.0, 6.0, 8.0])
+    angle = torch.tensor([0.0, math.radians(25.0), math.radians(50.0)])
+    center_offset = torch.tensor([-3.0, 0.0, 3.0])
+    amplitude = torch.tensor([0.75, 1.0, 1.25])
+
+    out = gaussian_ridge(
+        height,
+        width,
+        width_sigma=width_sigma,
+        angle_rad=angle,
+        center_offset=center_offset,
+        amplitude=amplitude,
+    )
+
+    assert out.I.shape == (3, height, width)
+    assert out.g.shape == (3, 2, height, width)
+    for i in range(3):
+        single = gaussian_ridge(
+            height,
+            width,
+            width_sigma=float(width_sigma[i]),
+            angle_rad=float(angle[i]),
+            center_offset=float(center_offset[i]),
+            amplitude=float(amplitude[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_gaussian_ridge_honors_requested_device() -> None:
+    """Verify scalar Gaussian ridge inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = gaussian_ridge(
+        20,
+        24,
+        width_sigma=4.0,
+        angle_rad=math.radians(20.0),
+        center_offset=1.0,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_gaussian_ridge_infers_tensor_device() -> None:
+    """Verify tensor inputs keep Gaussian ridge output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = gaussian_ridge(
+        20,
+        24,
+        width_sigma=torch.tensor([4.0, 6.0], device=device),
+        angle_rad=torch.tensor([0.0, math.radians(20.0)], device=device),
+        center_offset=1.0,
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_smoothed_bar_gradient_matches_fd() -> None:
