@@ -110,7 +110,7 @@ def _specs() -> list[GeneratorSpec]:
             family="Edges And Transitions",
             name="hard_step",
             title="Hard Step Generator",
-            render=lambda: hard_step(HEIGHT, WIDTH, theta_rad=0.0),
+            render=lambda: hard_step(HEIGHT, WIDTH, angle_rad=0.0),
         ),
         GeneratorSpec(
             family="Edges And Transitions",
