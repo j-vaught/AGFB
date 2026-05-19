@@ -34,11 +34,11 @@ def junction_frame(
     """Render a smoothed stroked junction from analytic signed distances.
 
     Junction wrappers use this shared renderer for L-, T-, Y-, and X-shaped
-    fields. Each arm is a half-infinite stroked segment starting at the junction
-    point, and the shared node is a round join with radius `arm_width_px / 2`.
-    The final intensity is obtained by smoothing the signed distance to the
-    union of the arm strokes and join disk, which avoids the divots and ad hoc
-    endpoint caps produced by multiplying separate half-bar masks.
+    fields. Each arm is a stroked half-infinite centerline ray starting at the
+    junction point, so the endpoint naturally has a round cap with radius
+    `arm_width_px / 2`. The final intensity is obtained by smoothing the signed
+    distance to the union of those stroked rays, which avoids the divots and
+    ad hoc endpoint caps produced by multiplying separate half-bar masks.
     """
     device = device or torch.device("cpu")
     batch_size = infer_batch_size(*angles_rad, arm_width_px, x0, y0, contrast, sigma_e)
@@ -55,11 +55,9 @@ def junction_frame(
     y_from_center = yy - center_y_batch
     stroke_radius = arm_width_batch / 2.0
 
-    best_distance, best_gradient_x, best_gradient_y = _disk_signed_distance(
-        x_from_center,
-        y_from_center,
-        stroke_radius,
-    )
+    distances: list[torch.Tensor] = []
+    gradients_x: list[torch.Tensor] = []
+    gradients_y: list[torch.Tensor] = []
 
     for angle in angle_batches:
         cos_angle = torch.cos(angle)
@@ -69,7 +67,7 @@ def junction_frame(
 
         tangent_coord = x_from_center * cos_angle + y_from_center * sin_angle
         normal_coord = x_from_center * normal_x + y_from_center * normal_y
-        distance, gradient_x, gradient_y = _half_strip_signed_distance(
+        distance, gradient_x, gradient_y = _ray_stroke_signed_distance(
             tangent_coord,
             normal_coord,
             stroke_radius,
@@ -78,34 +76,45 @@ def junction_frame(
             normal_x,
             normal_y,
         )
-        use_arm = distance < best_distance
-        best_distance = torch.where(use_arm, distance, best_distance)
-        best_gradient_x = torch.where(use_arm, gradient_x, best_gradient_x)
-        best_gradient_y = torch.where(use_arm, gradient_y, best_gradient_y)
+        distances.append(distance)
+        gradients_x.append(gradient_x)
+        gradients_y.append(gradient_y)
 
-    normalized_distance = -best_distance / edge_sigma_batch
+    blend_width = torch.clamp(edge_sigma_batch * 0.25, max=1.0).clamp_min(1e-6)
+    signed_distance, signed_distance_gx, signed_distance_gy = _smooth_min_signed_distance(
+        distances,
+        gradients_x,
+        gradients_y,
+        blend_width,
+    )
+
+    normalized_distance = -signed_distance / edge_sigma_batch
     intensity = contrast_batch * gauss_Phi(normalized_distance)
     edge_derivative = -(contrast_batch / edge_sigma_batch) * gauss_phi(normalized_distance)
-    gradient_x = edge_derivative * best_gradient_x
-    gradient_y = edge_derivative * best_gradient_y
+    gradient_x = edge_derivative * signed_distance_gx
+    gradient_y = edge_derivative * signed_distance_gy
     return pack(intensity, gradient_x, gradient_y)
 
 
-def _disk_signed_distance(
-    x_from_center: torch.Tensor,
-    y_from_center: torch.Tensor,
-    radius: torch.Tensor,
+def _smooth_min_signed_distance(
+    distances: Sequence[torch.Tensor],
+    gradients_x: Sequence[torch.Tensor],
+    gradients_y: Sequence[torch.Tensor],
+    blend_width: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    radial_distance = torch.sqrt(
-        x_from_center * x_from_center + y_from_center * y_from_center
-    ).clamp_min(1e-12)
-    distance = radial_distance - radius
-    gradient_x = x_from_center / radial_distance
-    gradient_y = y_from_center / radial_distance
-    return distance, gradient_x, gradient_y
+    """Blend SDF components with a narrow differentiable soft minimum."""
+    distance_stack = torch.stack(tuple(distances), dim=0)
+    gradient_x_stack = torch.stack(tuple(gradients_x), dim=0)
+    gradient_y_stack = torch.stack(tuple(gradients_y), dim=0)
+
+    weights = torch.softmax(-distance_stack / blend_width, dim=0)
+    signed_distance = -blend_width * torch.logsumexp(-distance_stack / blend_width, dim=0)
+    gradient_x = torch.sum(weights * gradient_x_stack, dim=0)
+    gradient_y = torch.sum(weights * gradient_y_stack, dim=0)
+    return signed_distance, gradient_x, gradient_y
 
 
-def _half_strip_signed_distance(
+def _ray_stroke_signed_distance(
     tangent_coord: torch.Tensor,
     normal_coord: torch.Tensor,
     stroke_radius: torch.Tensor,
@@ -114,64 +123,24 @@ def _half_strip_signed_distance(
     normal_x: torch.Tensor,
     normal_y: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return signed distance to one half-infinite strip arm and its gradient."""
-    cap_distance = -tangent_coord
-    side_distance = torch.abs(normal_coord) - stroke_radius
-
-    outside_cap = torch.clamp(cap_distance, min=0.0)
-    outside_side = torch.clamp(side_distance, min=0.0)
-    outside_distance = torch.sqrt(outside_cap * outside_cap + outside_side * outside_side)
-
-    inside_distance = torch.minimum(
-        torch.maximum(cap_distance, side_distance),
-        torch.zeros_like(cap_distance),
+    """Return signed distance to one stroked ray and its gradient."""
+    behind_endpoint = tangent_coord < 0.0
+    endpoint_distance = torch.sqrt(
+        tangent_coord * tangent_coord + normal_coord * normal_coord
+    ).clamp_min(1e-12)
+    centerline_distance = torch.where(
+        behind_endpoint,
+        endpoint_distance,
+        torch.abs(normal_coord),
     )
-    distance = outside_distance + inside_distance
+    distance = centerline_distance - stroke_radius
 
+    endpoint_gradient_x = (tangent_coord * tangent_x + normal_coord * normal_x) / endpoint_distance
+    endpoint_gradient_y = (tangent_coord * tangent_y + normal_coord * normal_y) / endpoint_distance
     normal_sign = torch.sign(normal_coord)
-    cap_gradient_x = -tangent_x
-    cap_gradient_y = -tangent_y
     side_gradient_x = normal_sign * normal_x
     side_gradient_y = normal_sign * normal_y
 
-    outside_mask = outside_distance > 0.0
-    outside_gradient_x = torch.zeros_like(distance)
-    outside_gradient_y = torch.zeros_like(distance)
-    outside_gradient_x = outside_gradient_x + torch.where(
-        cap_distance > 0.0,
-        outside_cap * cap_gradient_x,
-        torch.zeros_like(distance),
-    )
-    outside_gradient_y = outside_gradient_y + torch.where(
-        cap_distance > 0.0,
-        outside_cap * cap_gradient_y,
-        torch.zeros_like(distance),
-    )
-    outside_gradient_x = outside_gradient_x + torch.where(
-        side_distance > 0.0,
-        outside_side * side_gradient_x,
-        torch.zeros_like(distance),
-    )
-    outside_gradient_y = outside_gradient_y + torch.where(
-        side_distance > 0.0,
-        outside_side * side_gradient_y,
-        torch.zeros_like(distance),
-    )
-    outside_gradient_x = torch.where(
-        outside_mask,
-        outside_gradient_x / outside_distance.clamp_min(1e-12),
-        outside_gradient_x,
-    )
-    outside_gradient_y = torch.where(
-        outside_mask,
-        outside_gradient_y / outside_distance.clamp_min(1e-12),
-        outside_gradient_y,
-    )
-
-    use_cap_inside = cap_distance >= side_distance
-    inside_gradient_x = torch.where(use_cap_inside, cap_gradient_x, side_gradient_x)
-    inside_gradient_y = torch.where(use_cap_inside, cap_gradient_y, side_gradient_y)
-
-    gradient_x = torch.where(outside_mask, outside_gradient_x, inside_gradient_x)
-    gradient_y = torch.where(outside_mask, outside_gradient_y, inside_gradient_y)
+    gradient_x = torch.where(behind_endpoint, endpoint_gradient_x, side_gradient_x)
+    gradient_y = torch.where(behind_endpoint, endpoint_gradient_y, side_gradient_y)
     return distance, gradient_x, gradient_y
