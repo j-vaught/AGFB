@@ -15,19 +15,19 @@ if str(REPO_ROOT) not in sys.path:
 from agfb_generators import anisotropic_blob  # noqa: E402
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-frame = anisotropic_blob(
-    160,
-    160,
-    length_sigma=24,
-    width_sigma=7,
-    angle_rad=math.radians(35),
-    amplitude=1,
-    device=device,
-)
-
-intensity = frame.I[0].detach().cpu()
-gradient_magnitude = torch.sqrt(frame.gx[0] ** 2 + frame.gy[0] ** 2).detach().cpu()
-gradient_angle = torch.atan2(frame.gy[0], frame.gx[0]).detach().cpu()
+with torch.no_grad():
+    frame = anisotropic_blob(
+        160,
+        160,
+        length_sigma=40,
+        width_sigma=47,
+        angle_rad=math.radians(35),
+        amplitude=1,
+        device=device,
+    )
+    intensity = frame.I[0].cpu()
+    gradient_magnitude = torch.sqrt(frame.gx[0] ** 2 + frame.gy[0] ** 2).cpu()
+    gradient_angle = torch.atan2(frame.gy[0], frame.gx[0]).cpu()
 gradient_angle[gradient_magnitude < 0.02 * gradient_magnitude.max()] = torch.nan
 
 intensity_cmap = LinearSegmentedColormap.from_list("intensity", ["#000000", "#73000A", "#FFFFFF"])

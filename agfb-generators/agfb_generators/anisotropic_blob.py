@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import torch
 
-from agfb_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
+from agfb_generators.base import (
+    Frame,
+    Numeric,
+    as_batch,
+    coord_grid,
+    infer_batch_size,
+    infer_device,
+    pack,
+)
 
 
 def anisotropic_blob(
@@ -40,10 +48,20 @@ def anisotropic_blob(
     `u = dx * cos(angle) + dy * sin(angle)` and
     `v = -dx * sin(angle) + dy * cos(angle)`. The returned `Frame` contains the
     intensity image and the closed-form gradients with respect to image `x`
-    and `y`. All grid and parameter tensors are created on `device`, so passing
-    a CUDA device runs the same vectorized path on the GPU.
+    and `y`. If `device` is omitted and a tensor parameter is passed, the
+    render stays on that tensor's device. All grid and parameter tensors are
+    created on the resolved device, so CUDA inputs run the same vectorized path
+    on the GPU.
     """
-    device = device or torch.device("cpu")
+    device = infer_device(
+        device,
+        length_sigma,
+        width_sigma,
+        angle_rad,
+        center_x,
+        center_y,
+        amplitude,
+    )
     batch_size = infer_batch_size(
         length_sigma,
         width_sigma,

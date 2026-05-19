@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 
 import torch
 
@@ -85,14 +86,56 @@ def coord_grid(
 
     Generator functions use `xx` and `yy` to evaluate analytic intensity and
     gradient formulas on the shared convention where the origin is the image
-    center, `+x` points right, and `+y` points down.
+    center, `+x` points right, and `+y` points down. The grids are cached by
+    shape, device, and dtype because benchmark previews and parameter sweeps
+    commonly render many fields on the same canvas.
     """
+    return _coord_grid_cached(height, width, *_device_key(device), dtype)
+
+
+def infer_device(device: torch.device | None, *params: Numeric) -> torch.device:
+    """Resolve the compute device for one generator call.
+
+    Public generators use this to honor an explicit `device` argument while
+    also keeping tensor-only calls on the first tensor parameter's device. If
+    no device is supplied and all parameters are Python scalars, CPU is used.
+    """
+    if device is not None:
+        return torch.device(device)
+    for param in params:
+        if isinstance(param, torch.Tensor):
+            return param.device
+    return torch.device("cpu")
+
+
+@lru_cache(maxsize=32)
+def _coord_grid_cached(
+    height: int,
+    width: int,
+    device_type: str,
+    device_index: int | None,
+    dtype: torch.dtype,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    device = _device_from_key(device_type, device_index)
     cx = (width - 1) / 2.0
     cy = (height - 1) / 2.0
     ys = torch.arange(height, device=device, dtype=dtype) - cy
     xs = torch.arange(width, device=device, dtype=dtype) - cx
     yy, xx = torch.meshgrid(ys, xs, indexing="ij")
     return xx, yy
+
+
+def _device_key(device: torch.device) -> tuple[str, int | None]:
+    resolved = torch.device(device)
+    if resolved.type == "cuda" and resolved.index is None:
+        return resolved.type, torch.cuda.current_device()
+    return resolved.type, resolved.index
+
+
+def _device_from_key(device_type: str, device_index: int | None) -> torch.device:
+    if device_index is None:
+        return torch.device(device_type)
+    return torch.device(device_type, device_index)
 
 
 def as_batch(

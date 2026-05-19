@@ -120,6 +120,22 @@ def test_anisotropic_blob_honors_requested_device() -> None:
     assert frame.g.shape == (2, 2, 32, 36)
 
 
+def test_anisotropic_blob_infers_tensor_device() -> None:
+    """Verify tensor inputs keep anisotropic blob output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = anisotropic_blob(
+        20,
+        22,
+        length_sigma=torch.tensor([6.0, 9.0], device=device),
+        width_sigma=3.0,
+        angle_rad=torch.tensor([0.0, math.radians(25.0)], device=device),
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
 def test_scale_frequency_generator_shapes_and_dtype() -> None:
     """Check shape and dtype conventions for the new generator slice."""
     dtype = torch.float64
