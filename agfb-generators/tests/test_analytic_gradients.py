@@ -14,7 +14,6 @@ from agfb_generators import (
     curved_arc,
     gaussian_blob,
     gaussian_ridge,
-    hard_step,
     polynomial,
     sinusoid,
     smoothed_bar,
@@ -66,76 +65,6 @@ def test_smoothed_step_gradient_matches_fd() -> None:
     """Check the smoothed straight edge gradient used by the AGFB benchmark."""
     f = smoothed_step(256, 256, theta_rad=math.radians(30.0), sigma_e=4.0)
     _check_signal_mask(f, rel_tol=1e-3, name="smoothed_step")
-
-
-def test_hard_step_gradient_matches_fd() -> None:
-    """Check the hard-edge wrapper at the relaxed tolerance its width requires."""
-    # sigma_e=0.5 px is at Nyquist; 4th-order FD cannot achieve the usual 1e-3
-    # bar here. We only check that gradient magnitudes are in the same ballpark.
-    f = hard_step(256, 256, angle_rad=math.radians(15.0))
-    _check_signal_mask(f, rel_tol=3e-1, name="hard_step")
-
-
-def test_hard_step_batched_consistent_with_scalar() -> None:
-    """Verify batched hard steps match repeated scalar renders."""
-    height = 72
-    width = 76
-    angle = torch.tensor([0.0, math.radians(20.0), math.radians(40.0)])
-    center_offset = torch.tensor([-3.0, 0.0, 3.0])
-    amplitude = torch.tensor([0.75, 1.0, 1.25])
-
-    out = hard_step(
-        height,
-        width,
-        angle_rad=angle,
-        center_offset=center_offset,
-        amplitude=amplitude,
-    )
-
-    assert out.I.shape == (3, height, width)
-    assert out.g.shape == (3, 2, height, width)
-    for i in range(3):
-        single = hard_step(
-            height,
-            width,
-            angle_rad=float(angle[i]),
-            center_offset=float(center_offset[i]),
-            amplitude=float(amplitude[i]),
-        )
-        assert torch.equal(out.I[i], single.I[0])
-        assert torch.equal(out.gx[i], single.gx[0])
-        assert torch.equal(out.gy[i], single.gy[0])
-
-
-def test_hard_step_honors_requested_device() -> None:
-    """Verify scalar hard-step inputs render on the requested compute device."""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    frame = hard_step(
-        20,
-        24,
-        angle_rad=math.radians(20.0),
-        center_offset=1.0,
-        amplitude=1.2,
-        device=device,
-    )
-
-    assert frame.I.device == device
-    assert frame.g.device == device
-
-
-def test_hard_step_infers_tensor_device() -> None:
-    """Verify tensor inputs keep hard-step output on the same device."""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    frame = hard_step(
-        20,
-        24,
-        angle_rad=torch.tensor([0.0, math.radians(20.0)], device=device),
-        center_offset=torch.tensor([-1.0, 1.0], device=device),
-        amplitude=1.2,
-    )
-
-    assert frame.I.device == device
-    assert frame.g.device == device
 
 
 def test_curved_arc_gradient_matches_fd() -> None:

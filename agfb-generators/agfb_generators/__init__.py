@@ -10,7 +10,6 @@ from agfb_generators.finite_ramp import finite_ramp
 from agfb_generators.gabor_packet import gabor_packet
 from agfb_generators.gaussian_blob import gaussian_blob
 from agfb_generators.gaussian_ridge import gaussian_ridge
-from agfb_generators.hard_step import hard_step
 from agfb_generators.junction_truth import junction_mask
 from agfb_generators.l_junction import hard_l_junction, smoothed_l_junction
 from agfb_generators.mach_band import mach_band
@@ -39,7 +38,6 @@ __all__ = [
     "gaussian_blob",
     "gaussian_ridge",
     "hard_l_junction",
-    "hard_step",
     "hard_t_junction",
     "hard_x_junction",
     "hard_y_junction",

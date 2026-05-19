@@ -20,7 +20,7 @@ a batched output of shape `(B, H, W)` for intensity and `(B, 2, H, W)` for the g
 | Family | Generators |
 |--------|------------|
 | Polynomial | `polynomial` |
-| Edges and transitions | `smoothed_step`, `hard_step`, `finite_ramp`, `smoothed_ramp`, `roof_profile`, `mach_band` |
+| Edges and transitions | `smoothed_step`, `finite_ramp`, `smoothed_ramp`, `roof_profile`, `mach_band` |
 | Blobs and scale | `gaussian_blob`, `anisotropic_blob` |
 | Ridges and bars | `gaussian_ridge`, `smoothed_bar`, `asymmetric_ridge`, `curved_ridge` |
 | Circular boundaries | `curved_arc` |

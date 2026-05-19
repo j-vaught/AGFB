@@ -24,7 +24,6 @@ from agfb_generators import (  # noqa: E402
     gaussian_blob,
     gaussian_ridge,
     hard_l_junction,
-    hard_step,
     hard_t_junction,
     hard_x_junction,
     hard_y_junction,
@@ -105,12 +104,6 @@ def _specs() -> list[GeneratorSpec]:
             name="smoothed_step",
             title="Smoothed Step Generator",
             render=lambda: smoothed_step(HEIGHT, WIDTH, theta_rad=0.0, sigma_e=5.0),
-        ),
-        GeneratorSpec(
-            family="Edges And Transitions",
-            name="hard_step",
-            title="Hard Step Generator",
-            render=lambda: hard_step(HEIGHT, WIDTH, angle_rad=0.0),
         ),
         GeneratorSpec(
             family="Edges And Transitions",

@@ -83,7 +83,7 @@ This review records the filter metrics and synthetic image families that are rel
 
 Canny defines edge detection as an optimization problem with three criteria. The detector should have a high probability of finding real edges and a low probability of marking noise, it should localize edge points accurately, and it should return only one response for a single edge. Those criteria translate directly into measurable benchmark outputs. The generator should therefore provide exact edge masks, signed distance fields, and expected response locations so detection rate, localization error, and duplicate response count can be measured without manual inspection @Canny1986EdgeDetection.
 
-The core synthetic stimulus is the noisy step edge. The paper also points beyond simple steps to ridge and roof edge operators. For this project, that means the edge family should include hard steps, blurred steps, finite-width ridges, roof profiles, impulse-like lines, and controlled additive noise. This source is the strongest argument for separating generator truth from operator truth, because the same analytic edge field can be scored under several detector definitions.
+The core synthetic stimulus is the noisy step edge. The paper also points beyond simple steps to ridge and roof edge operators. For this project, that means the edge family should include narrow and blurred smoothed steps, finite-width ridges, roof profiles, impulse-like lines, and controlled additive noise. This source is the strongest argument for separating generator truth from operator truth, because the same analytic edge field can be scored under several detector definitions.
 
 == Perona and Malik. Scale-Space and Edge Detection Using Anisotropic Diffusion
 
@@ -149,7 +149,7 @@ These references argue for a practical compatibility layer. A user testing a new
 
 The first addition should be polynomial scalar fields. They are not emphasized by the reviewed detector papers, but they provide a clean analytic baseline for gradient, Hessian, curvature, and derivative correctness. Linear, quadratic, cubic, saddle, and mixed-term fields should be included with closed-form gradients and Hessians.
 
-The second addition should be edge and transition families. This includes hard steps, error-function steps, finite ramps, smoothed ramps, roof profiles, Mach-band-like profiles, and paired blur or diffusion transforms. These fields support Canny-style detection metrics and Perona-Malik-style boundary preservation metrics.
+The second addition should be edge and transition families. This includes narrow smoothed steps, error-function steps, finite ramps, smoothed ramps, roof profiles, Mach-band-like profiles, and paired blur or diffusion transforms. These fields support Canny-style detection metrics and Perona-Malik-style boundary preservation metrics.
 
 The third addition should be junction families. L-, T-, Y-, and X-junctions should be generated from sharp polygons and from smoothed error-function compositions. Each instance should carry junction coordinates, edge masks, branch labels, angles, widths, and selected blur or noise settings.
 

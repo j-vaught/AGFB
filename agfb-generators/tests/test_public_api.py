@@ -20,7 +20,6 @@ def test_public_exports_include_generator_families() -> None:
         "gaussian_blob",
         "gaussian_ridge",
         "hard_l_junction",
-        "hard_step",
         "hard_t_junction",
         "hard_x_junction",
         "hard_y_junction",
