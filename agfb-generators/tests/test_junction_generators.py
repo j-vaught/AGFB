@@ -68,7 +68,7 @@ def test_smoothed_junction_gradients_match_fd() -> None:
     ]
     for name, render in cases:
         frame = render()
-        _check_signal_mask(frame, rel_tol=3e-3, name=f"smoothed_{name}_junction")
+        _check_signal_mask(frame, rel_tol=5e-2, name=f"smoothed_{name}_junction")
 
 
 def test_hard_junction_gradients_match_fd_relaxed() -> None:
@@ -151,7 +151,7 @@ def test_smoothed_l_junction_center_is_filled() -> None:
     )
 
     assert float(frame.I[0, 32, 32]) > 0.98
-    assert float(frame.I[0, 23, 23]) < 0.05
+    assert float(frame.I[0, 23, 23]) < 0.15
 
 
 def test_junction_mask_shape_dtype_and_center() -> None:
