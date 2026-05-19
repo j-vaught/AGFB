@@ -165,7 +165,7 @@ def _specs() -> list[GeneratorSpec]:
                 WIDTH,
                 length_sigma=30.0,
                 width_sigma=10.0,
-                theta_rad=0.0,
+                angle_rad=0.0,
             ),
         ),
         GeneratorSpec(

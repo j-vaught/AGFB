@@ -19,7 +19,7 @@ def test_anisotropic_blob_gradient_matches_fd() -> None:
         256,
         length_sigma=18.0,
         width_sigma=11.0,
-        theta_rad=math.radians(27.0),
+        angle_rad=math.radians(27.0),
         center_x=3.0,
         center_y=-5.0,
         amplitude=1.3,
@@ -65,7 +65,7 @@ def test_anisotropic_blob_batched_consistent_with_scalar() -> None:
     W = 80
     length_sigma = torch.tensor([7.0, 10.0, 13.0])
     width_sigma = torch.tensor([4.0, 6.0, 8.0])
-    theta = torch.tensor([0.0, math.radians(25.0), math.radians(70.0)])
+    angle = torch.tensor([0.0, math.radians(25.0), math.radians(70.0)])
     center_x = torch.tensor([-3.0, 0.0, 4.0])
     center_y = torch.tensor([2.0, -5.0, 1.0])
     amplitude = torch.tensor([0.7, 1.0, 1.4])
@@ -75,7 +75,7 @@ def test_anisotropic_blob_batched_consistent_with_scalar() -> None:
         W,
         length_sigma=length_sigma,
         width_sigma=width_sigma,
-        theta_rad=theta,
+        angle_rad=angle,
         center_x=center_x,
         center_y=center_y,
         amplitude=amplitude,
@@ -89,7 +89,7 @@ def test_anisotropic_blob_batched_consistent_with_scalar() -> None:
             W,
             length_sigma=float(length_sigma[i]),
             width_sigma=float(width_sigma[i]),
-            theta_rad=float(theta[i]),
+            angle_rad=float(angle[i]),
             center_x=float(center_x[i]),
             center_y=float(center_y[i]),
             amplitude=float(amplitude[i]),
@@ -97,6 +97,27 @@ def test_anisotropic_blob_batched_consistent_with_scalar() -> None:
         assert torch.equal(out.I[i], single.I[0])
         assert torch.equal(out.gx[i], single.gx[0])
         assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_anisotropic_blob_honors_requested_device() -> None:
+    """Verify anisotropic blob tensors stay on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = anisotropic_blob(
+        32,
+        36,
+        length_sigma=torch.tensor([6.0, 9.0]),
+        width_sigma=3.0,
+        angle_rad=torch.tensor([0.0, math.radians(25.0)]),
+        center_x=torch.tensor([-2.0, 3.0]),
+        center_y=1.5,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+    assert frame.I.shape == (2, 32, 36)
+    assert frame.g.shape == (2, 2, 32, 36)
 
 
 def test_scale_frequency_generator_shapes_and_dtype() -> None:
@@ -110,7 +131,7 @@ def test_scale_frequency_generator_shapes_and_dtype() -> None:
         W,
         length_sigma=torch.tensor([5.0, 6.0], dtype=dtype),
         width_sigma=3.5,
-        theta_rad=torch.tensor([0.1, 0.4], dtype=dtype),
+        angle_rad=torch.tensor([0.1, 0.4], dtype=dtype),
         dtype=dtype,
     )
     ch = chirp(

@@ -13,7 +13,7 @@ def anisotropic_blob(
     *,
     length_sigma: Numeric,
     width_sigma: Numeric,
-    theta_rad: Numeric,
+    angle_rad: Numeric,
     center_x: Numeric = 0.0,
     center_y: Numeric = 0.0,
     amplitude: Numeric = 1.0,
@@ -30,23 +30,24 @@ def anisotropic_blob(
 
     `length_sigma` controls the standard deviation along the rotated long
     axis, and `width_sigma` controls the standard deviation along the
-    perpendicular short axis. `theta_rad` is the long-axis angle in radians,
+    perpendicular short axis. `angle_rad` is the long-axis angle in radians,
     measured from the image `+x` direction. `center_x` and `center_y` move the
     blob center in the shared centered coordinate system. `amplitude` is the
     peak intensity at the blob center.
 
     The rendered intensity is
     `amplitude * exp(-0.5 * ((u / length_sigma)^2 + (v / width_sigma)^2))`, where
-    `u = dx * cos(theta) + dy * sin(theta)` and
-    `v = -dx * sin(theta) + dy * cos(theta)`. The returned `Frame` contains the
+    `u = dx * cos(angle) + dy * sin(angle)` and
+    `v = -dx * sin(angle) + dy * cos(angle)`. The returned `Frame` contains the
     intensity image and the closed-form gradients with respect to image `x`
-    and `y`.
+    and `y`. All grid and parameter tensors are created on `device`, so passing
+    a CUDA device runs the same vectorized path on the GPU.
     """
     device = device or torch.device("cpu")
     batch_size = infer_batch_size(
         length_sigma,
         width_sigma,
-        theta_rad,
+        angle_rad,
         center_x,
         center_y,
         amplitude,
@@ -55,26 +56,24 @@ def anisotropic_blob(
 
     length_sigma_batch = as_batch(length_sigma, batch_size, device, dtype)
     width_sigma_batch = as_batch(width_sigma, batch_size, device, dtype)
-    theta_batch = as_batch(theta_rad, batch_size, device, dtype)
+    angle_batch = as_batch(angle_rad, batch_size, device, dtype)
     center_x_batch = as_batch(center_x, batch_size, device, dtype)
     center_y_batch = as_batch(center_y, batch_size, device, dtype)
     amplitude_batch = as_batch(amplitude, batch_size, device, dtype)
 
-    cos_theta = torch.cos(theta_batch)
-    sin_theta = torch.sin(theta_batch)
+    cos_angle = torch.cos(angle_batch)
+    sin_angle = torch.sin(angle_batch)
     x_from_center = xx - center_x_batch
     y_from_center = yy - center_y_batch
-    u_coord = x_from_center * cos_theta + y_from_center * sin_theta
-    v_coord = -x_from_center * sin_theta + y_from_center * cos_theta
-    length_sigma_sq = length_sigma_batch * length_sigma_batch
-    width_sigma_sq = width_sigma_batch * width_sigma_batch
+    u_coord = x_from_center * cos_angle + y_from_center * sin_angle
+    v_coord = -x_from_center * sin_angle + y_from_center * cos_angle
+    inv_length_sigma_sq = torch.reciprocal(length_sigma_batch * length_sigma_batch)
+    inv_width_sigma_sq = torch.reciprocal(width_sigma_batch * width_sigma_batch)
 
-    exponent = -0.5 * ((u_coord * u_coord) / length_sigma_sq + (v_coord * v_coord) / width_sigma_sq)
+    u_scaled = u_coord * inv_length_sigma_sq
+    v_scaled = v_coord * inv_width_sigma_sq
+    exponent = -0.5 * (u_coord * u_scaled + v_coord * v_scaled)
     intensity = amplitude_batch * torch.exp(exponent)
-    gradient_x = intensity * (
-        -(u_coord / length_sigma_sq) * cos_theta + (v_coord / width_sigma_sq) * sin_theta
-    )
-    gradient_y = intensity * (
-        -(u_coord / length_sigma_sq) * sin_theta - (v_coord / width_sigma_sq) * cos_theta
-    )
+    gradient_x = intensity * (-u_scaled * cos_angle + v_scaled * sin_angle)
+    gradient_y = intensity * (-u_scaled * sin_angle - v_scaled * cos_angle)
     return pack(intensity, gradient_x, gradient_y)
