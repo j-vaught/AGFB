@@ -120,16 +120,97 @@ def test_gabor_packet_gradient_matches_fd() -> None:
     f = gabor_packet(
         256,
         256,
-        freq=0.03,
-        theta_rad=math.radians(24.0),
-        sigma_u=24.0,
-        sigma_v=14.0,
-        x0=4.0,
-        y0=-6.0,
-        contrast=1.1,
-        phase=0.2,
+        carrier_frequency=0.03,
+        angle_rad=math.radians(24.0),
+        envelope_length_sigma=24.0,
+        envelope_width_sigma=14.0,
+        center_x=4.0,
+        center_y=-6.0,
+        amplitude=1.1,
+        phase_rad=0.2,
     )
     _check_signal_mask(f, rel_tol=1e-2, name="gabor_packet")
+
+
+def test_gabor_packet_batched_consistent_with_scalar() -> None:
+    """Verify batched Gabor packets match repeated scalar renders."""
+    height = 84
+    width = 88
+    carrier_frequency = torch.tensor([0.018, 0.026, 0.034])
+    angle = torch.tensor([0.0, math.radians(24.0), math.radians(48.0)])
+    envelope_length_sigma = torch.tensor([18.0, 24.0, 30.0])
+    envelope_width_sigma = torch.tensor([8.0, 12.0, 16.0])
+    center_x = torch.tensor([-4.0, 0.0, 4.0])
+    center_y = torch.tensor([3.0, -3.0, 1.0])
+    amplitude = torch.tensor([0.75, 1.0, 1.25])
+    phase = torch.tensor([0.0, 0.2, 0.4])
+
+    out = gabor_packet(
+        height,
+        width,
+        carrier_frequency=carrier_frequency,
+        angle_rad=angle,
+        envelope_length_sigma=envelope_length_sigma,
+        envelope_width_sigma=envelope_width_sigma,
+        center_x=center_x,
+        center_y=center_y,
+        amplitude=amplitude,
+        phase_rad=phase,
+    )
+
+    assert out.I.shape == (3, height, width)
+    assert out.g.shape == (3, 2, height, width)
+    for i in range(3):
+        single = gabor_packet(
+            height,
+            width,
+            carrier_frequency=float(carrier_frequency[i]),
+            angle_rad=float(angle[i]),
+            envelope_length_sigma=float(envelope_length_sigma[i]),
+            envelope_width_sigma=float(envelope_width_sigma[i]),
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            amplitude=float(amplitude[i]),
+            phase_rad=float(phase[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_gabor_packet_honors_requested_device() -> None:
+    """Verify scalar Gabor packet inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = gabor_packet(
+        20,
+        24,
+        carrier_frequency=0.025,
+        angle_rad=math.radians(24.0),
+        envelope_length_sigma=18.0,
+        envelope_width_sigma=9.0,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_gabor_packet_infers_tensor_device() -> None:
+    """Verify tensor inputs keep Gabor packet output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = gabor_packet(
+        20,
+        24,
+        carrier_frequency=torch.tensor([0.018, 0.026], device=device),
+        angle_rad=torch.tensor([0.0, math.radians(24.0)], device=device),
+        envelope_length_sigma=18.0,
+        envelope_width_sigma=9.0,
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_anisotropic_blob_batched_consistent_with_scalar() -> None:
@@ -234,10 +315,10 @@ def test_scale_frequency_generator_shapes_and_dtype() -> None:
     gabor = gabor_packet(
         H,
         W,
-        freq=0.02,
-        theta_rad=torch.tensor([0.0, 0.3], dtype=dtype),
-        sigma_u=9.0,
-        sigma_v=5.0,
+        carrier_frequency=0.02,
+        angle_rad=torch.tensor([0.0, 0.3], dtype=dtype),
+        envelope_length_sigma=9.0,
+        envelope_width_sigma=5.0,
         dtype=dtype,
     )
 

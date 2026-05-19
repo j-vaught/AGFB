@@ -6,55 +6,117 @@ import math
 
 import torch
 
-from agfb_generators.base import Frame, Numeric, as_batch, coord_grid, infer_batch_size, pack
+from agfb_generators.base import (
+    Frame,
+    Numeric,
+    as_batch,
+    coord_grid,
+    infer_batch_size,
+    infer_device,
+    pack,
+)
 
 
 def gabor_packet(
     height: int,
     width: int,
     *,
-    freq: Numeric,
-    theta_rad: Numeric,
-    sigma_u: Numeric,
-    sigma_v: Numeric,
-    x0: Numeric = 0.0,
-    y0: Numeric = 0.0,
-    contrast: Numeric = 1.0,
-    phase: Numeric = 0.0,
+    carrier_frequency: Numeric,
+    angle_rad: Numeric,
+    envelope_length_sigma: Numeric,
+    envelope_width_sigma: Numeric,
+    center_x: Numeric = 0.0,
+    center_y: Numeric = 0.0,
+    amplitude: Numeric = 1.0,
+    phase_rad: Numeric = 0.0,
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Render a batched anisotropic Gaussian-windowed sinusoid."""
-    device = device or torch.device("cpu")
-    B = infer_batch_size(freq, theta_rad, sigma_u, sigma_v, x0, y0, contrast, phase)
+    """Render a batched sinusoid inside a rotated Gaussian envelope.
+
+    The benchmark uses this generator when a filter should handle a local
+    frequency pattern instead of a full-image grating. It is useful for
+    checking whether a response is localized to an oriented packet and whether
+    the analytic gradient reflects both the carrier wave and the envelope
+    falloff.
+
+    `carrier_frequency` is measured in cycles per pixel along the oriented
+    carrier coordinate. `angle_rad` is that carrier coordinate angle in
+    radians, measured from the image `+x` direction. `envelope_length_sigma`
+    controls the Gaussian window along the carrier coordinate, and
+    `envelope_width_sigma` controls the perpendicular window width. `center_x`
+    and `center_y` move the packet center in the shared centered coordinate
+    system. `amplitude` scales the output, and `phase_rad` shifts the carrier
+    sinusoid.
+
+    The returned `Frame` contains the intensity image and the closed-form
+    gradients with respect to image `x` and `y`. If `device` is omitted and a
+    tensor parameter is passed, the render stays on that tensor's device.
+    """
+    device = infer_device(
+        device,
+        carrier_frequency,
+        angle_rad,
+        envelope_length_sigma,
+        envelope_width_sigma,
+        center_x,
+        center_y,
+        amplitude,
+        phase_rad,
+    )
+    batch_size = infer_batch_size(
+        carrier_frequency,
+        angle_rad,
+        envelope_length_sigma,
+        envelope_width_sigma,
+        center_x,
+        center_y,
+        amplitude,
+        phase_rad,
+    )
     xx, yy = coord_grid(height, width, device, dtype)
 
-    f = as_batch(freq, B, device, dtype)
-    theta = as_batch(theta_rad, B, device, dtype)
-    su = as_batch(sigma_u, B, device, dtype)
-    sv = as_batch(sigma_v, B, device, dtype)
-    x0_b = as_batch(x0, B, device, dtype)
-    y0_b = as_batch(y0, B, device, dtype)
-    c = as_batch(contrast, B, device, dtype)
-    ph = as_batch(phase, B, device, dtype)
+    carrier_frequency_batch = as_batch(carrier_frequency, batch_size, device, dtype)
+    angle_batch = as_batch(angle_rad, batch_size, device, dtype)
+    envelope_length_sigma_batch = as_batch(envelope_length_sigma, batch_size, device, dtype)
+    envelope_width_sigma_batch = as_batch(envelope_width_sigma, batch_size, device, dtype)
+    center_x_batch = as_batch(center_x, batch_size, device, dtype)
+    center_y_batch = as_batch(center_y, batch_size, device, dtype)
+    amplitude_batch = as_batch(amplitude, batch_size, device, dtype)
+    phase_batch = as_batch(phase_rad, batch_size, device, dtype)
 
-    cos_t = torch.cos(theta)
-    sin_t = torch.sin(theta)
-    dx = xx - x0_b
-    dy = yy - y0_b
-    u = dx * cos_t + dy * sin_t
-    v = -dx * sin_t + dy * cos_t
-    su2 = su * su
-    sv2 = sv * sv
+    cos_angle = torch.cos(angle_batch)
+    sin_angle = torch.sin(angle_batch)
+    x_from_center = xx - center_x_batch
+    y_from_center = yy - center_y_batch
+    carrier_coord = x_from_center * cos_angle + y_from_center * sin_angle
+    transverse_coord = -x_from_center * sin_angle + y_from_center * cos_angle
+    envelope_length_sigma_sq = envelope_length_sigma_batch * envelope_length_sigma_batch
+    envelope_width_sigma_sq = envelope_width_sigma_batch * envelope_width_sigma_batch
 
-    E = torch.exp(-0.5 * ((u * u) / su2 + (v * v) / sv2))
-    arg = 2.0 * math.pi * f * u + ph
-    sin_arg = torch.sin(arg)
-    cos_arg = torch.cos(arg)
+    envelope = torch.exp(
+        -0.5
+        * (
+            (carrier_coord * carrier_coord) / envelope_length_sigma_sq
+            + (transverse_coord * transverse_coord) / envelope_width_sigma_sq
+        )
+    )
+    phase_arg = 2.0 * math.pi * carrier_frequency_batch * carrier_coord + phase_batch
+    sin_phase = torch.sin(phase_arg)
+    cos_phase = torch.cos(phase_arg)
 
-    I = c * E * sin_arg
-    dI_du = c * E * ((2.0 * math.pi * f) * cos_arg - (u / su2) * sin_arg)
-    dI_dv = c * E * (-(v / sv2) * sin_arg)
-    gx = dI_du * cos_t - dI_dv * sin_t
-    gy = dI_du * sin_t + dI_dv * cos_t
-    return pack(I, gx, gy)
+    intensity = amplitude_batch * envelope * sin_phase
+    carrier_derivative = (
+        amplitude_batch
+        * envelope
+        * (
+            (2.0 * math.pi * carrier_frequency_batch) * cos_phase
+            - (carrier_coord / envelope_length_sigma_sq) * sin_phase
+        )
+    )
+    transverse_derivative = (
+        amplitude_batch * envelope * (-(transverse_coord / envelope_width_sigma_sq) * sin_phase)
+    )
+    gradient_x = carrier_derivative * cos_angle - transverse_derivative * sin_angle
+    gradient_y = carrier_derivative * sin_angle + transverse_derivative * cos_angle
+    return pack(intensity, gradient_x, gradient_y)

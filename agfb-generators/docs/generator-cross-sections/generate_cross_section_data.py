@@ -249,10 +249,10 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: gabor_packet(
                 HEIGHT,
                 WIDTH,
-                freq=0.045,
-                theta_rad=0.0,
-                sigma_u=45.0,
-                sigma_v=18.0,
+                carrier_frequency=0.045,
+                angle_rad=0.0,
+                envelope_length_sigma=45.0,
+                envelope_width_sigma=18.0,
             ),
         ),
         GeneratorSpec(
