@@ -78,8 +78,80 @@ def test_hard_step_gradient_matches_fd() -> None:
 
 def test_curved_arc_gradient_matches_fd() -> None:
     """Check the curved-edge generator against finite-difference gradients."""
-    f = curved_arc(256, 256, r0=64.0, sigma_e=4.0)
+    f = curved_arc(256, 256, radius=64.0, edge_sigma=4.0)
     _check_signal_mask(f, rel_tol=1e-3, name="curved_arc")
+
+
+def test_curved_arc_batched_consistent_with_scalar() -> None:
+    """Verify batched curved arcs match repeated scalar renders."""
+    height = 80
+    width = 84
+    radius = torch.tensor([40.0, 56.0, 72.0])
+    center_x = torch.tensor([-12.0, 0.0, 14.0])
+    center_y = torch.tensor([8.0, -6.0, 2.0])
+    amplitude = torch.tensor([0.8, 1.0, 1.2])
+    edge_sigma = torch.tensor([3.0, 4.0, 5.0])
+
+    out = curved_arc(
+        height,
+        width,
+        radius=radius,
+        center_x=center_x,
+        center_y=center_y,
+        amplitude=amplitude,
+        edge_sigma=edge_sigma,
+    )
+
+    assert out.I.shape == (3, height, width)
+    assert out.g.shape == (3, 2, height, width)
+    for i in range(3):
+        single = curved_arc(
+            height,
+            width,
+            radius=float(radius[i]),
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            amplitude=float(amplitude[i]),
+            edge_sigma=float(edge_sigma[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_curved_arc_honors_requested_device() -> None:
+    """Verify scalar curved-arc inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = curved_arc(
+        20,
+        24,
+        radius=18.0,
+        center_x=-4.0,
+        center_y=3.0,
+        amplitude=1.0,
+        edge_sigma=3.0,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_curved_arc_infers_tensor_device() -> None:
+    """Verify tensor inputs keep curved-arc output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = curved_arc(
+        20,
+        24,
+        radius=torch.tensor([18.0, 22.0], device=device),
+        center_x=torch.tensor([-4.0, 4.0], device=device),
+        center_y=3.0,
+        amplitude=1.0,
+        edge_sigma=3.0,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_sinusoid_gradient_matches_fd() -> None:

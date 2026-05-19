@@ -215,7 +215,14 @@ def _specs() -> list[GeneratorSpec]:
             family="Curved Boundaries",
             name="curved_arc",
             title="Curved Arc Generator",
-            render=lambda: curved_arc(HEIGHT, WIDTH, r0=55.0, sigma_e=5.0),
+            render=lambda: curved_arc(
+                HEIGHT,
+                WIDTH,
+                radius=120.0,
+                center_x=-72.0,
+                center_y=20.0,
+                edge_sigma=5.0,
+            ),
         ),
         GeneratorSpec(
             family="Frequency Fields",

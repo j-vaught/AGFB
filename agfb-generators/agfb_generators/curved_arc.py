@@ -1,4 +1,4 @@
-"""Radially smoothed disc generator."""
+"""Radially smoothed curved edge generator."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from agfb_generators.base import (
     gauss_Phi,
     gauss_phi,
     infer_batch_size,
+    infer_device,
     pack,
 )
 
@@ -20,37 +21,54 @@ def curved_arc(
     height: int,
     width: int,
     *,
-    r0: Numeric,
-    xc: Numeric = 0.0,
-    yc: Numeric = 0.0,
-    contrast: Numeric = 1.0,
-    sigma_e: Numeric = 2.0,
+    radius: Numeric,
+    center_x: Numeric = 0.0,
+    center_y: Numeric = 0.0,
+    amplitude: Numeric = 1.0,
+    edge_sigma: Numeric = 2.0,
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
-    """Render a batched radially smoothed disc boundary.
+    """Render a batched smoothed circular boundary as a curved edge.
 
-    AGFB uses this to test curved edge recovery. It evaluates
-    `I = c * Phi((r0 - rho) / sigma_e)` with `rho = ||p - center||` and
-    returns the inward analytic gradient of that transition.
+    The benchmark uses this generator when a filter should handle a curved
+    transition instead of only a straight step. The function renders the
+    inside of a disk with a Gaussian cumulative distribution transition at the
+    boundary. If the disk is centered in the crop, the image looks like a full
+    circle. If the center is shifted outside the crop, the visible boundary is
+    a local arc.
+
+    `radius` sets the disk radius in pixels. `center_x` and `center_y` place
+    the disk center in the shared centered coordinate system. `edge_sigma`
+    controls the Gaussian transition width at the boundary, and `amplitude`
+    controls the interior intensity.
+
+    The rendered intensity is
+    `amplitude * Phi((radius - rho) / edge_sigma)`, where
+    `rho = sqrt((x - center_x)^2 + (y - center_y)^2)`. The returned `Frame`
+    contains the intensity image and the closed-form inward gradients with
+    respect to image `x` and `y`. If `device` is omitted and a tensor parameter
+    is passed, the render stays on that tensor's device.
     """
-    device = device or torch.device("cpu")
-    B = infer_batch_size(r0, xc, yc, contrast, sigma_e)
+    device = infer_device(device, radius, center_x, center_y, amplitude, edge_sigma)
+    batch_size = infer_batch_size(radius, center_x, center_y, amplitude, edge_sigma)
     xx, yy = coord_grid(height, width, device, dtype)
 
-    r0_b = as_batch(r0, B, device, dtype)
-    xc_b = as_batch(xc, B, device, dtype)
-    yc_b = as_batch(yc, B, device, dtype)
-    c = as_batch(contrast, B, device, dtype)
-    s = as_batch(sigma_e, B, device, dtype)
+    radius_batch = as_batch(radius, batch_size, device, dtype)
+    center_x_batch = as_batch(center_x, batch_size, device, dtype)
+    center_y_batch = as_batch(center_y, batch_size, device, dtype)
+    amplitude_batch = as_batch(amplitude, batch_size, device, dtype)
+    edge_sigma_batch = as_batch(edge_sigma, batch_size, device, dtype)
 
-    dx = xx - xc_b
-    dy = yy - yc_b
-    rho = torch.sqrt(dx * dx + dy * dy).clamp_min(1e-12)
-    u = (r0_b - rho) / s
+    x_from_center = xx - center_x_batch
+    y_from_center = yy - center_y_batch
+    radial_distance = torch.sqrt(
+        x_from_center * x_from_center + y_from_center * y_from_center
+    ).clamp_min(1e-12)
+    normalized_distance = (radius_batch - radial_distance) / edge_sigma_batch
 
-    I = c * gauss_Phi(u)
-    gmag = -(c / s) * gauss_phi(u)  # gradient is -phi * rho_hat (inward)
-    gx = gmag * (dx / rho)
-    gy = gmag * (dy / rho)
-    return pack(I, gx, gy)
+    intensity = amplitude_batch * gauss_Phi(normalized_distance)
+    radial_derivative = -(amplitude_batch / edge_sigma_batch) * gauss_phi(normalized_distance)
+    gradient_x = radial_derivative * (x_from_center / radial_distance)
+    gradient_y = radial_derivative * (y_from_center / radial_distance)
+    return pack(intensity, gradient_x, gradient_y)
