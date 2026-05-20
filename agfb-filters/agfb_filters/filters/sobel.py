@@ -10,10 +10,15 @@ from functools import cache
 
 import torch
 
-from agfb_filters.base import linear_convolution_1d
-from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
-from agfb_filters.runner import run_filter
+from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.runtime.execution import (
+    BoundaryCondition,
+    BoundaryMode,
+    ExecutionPath,
+    ExecutionPlan,
+)
+from agfb_filters.runtime.runner import run_filter
+from agfb_filters.runtime.tensor_ops import linear_convolution_1d
 
 _SMOOTH_KERNEL_3 = torch.tensor([1.0, 2.0, 1.0]) / 4.0
 _DERIVATIVE_KERNEL_3 = torch.tensor([-1.0, 0.0, 1.0]) / 2.0

@@ -10,7 +10,7 @@ from typing import Any
 
 import torch
 
-from agfb_filters.execution import BoundaryCondition
+from agfb_filters.runtime.execution import BoundaryCondition
 
 MetadataValue = int | float | str
 

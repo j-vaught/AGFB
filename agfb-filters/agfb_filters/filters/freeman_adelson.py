@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.derivative_of_gaussian import derivative_of_gaussian_definition
-from agfb_filters.execution import BoundaryCondition, ExecutionPath, ExecutionPlan
-from agfb_filters.runner import run_filter
+from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.filters.derivative_of_gaussian import derivative_of_gaussian_definition
+from agfb_filters.runtime.execution import BoundaryCondition, ExecutionPath, ExecutionPlan
+from agfb_filters.runtime.runner import run_filter
 
 
 def freeman_adelson_g1_definition(

@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
-from agfb_filters.runner import run_filter
+from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.runtime.execution import (
+    BoundaryCondition,
+    BoundaryMode,
+    ExecutionPath,
+    ExecutionPlan,
+)
+from agfb_filters.runtime.runner import run_filter
 
 _PREFILTER = torch.tensor([0.030320, 0.249724, 0.439911, 0.249724, 0.030320])
 _DERIVATIVE_KERNEL = torch.tensor([-0.104550, -0.292315, 0.0, 0.292315, 0.104550])

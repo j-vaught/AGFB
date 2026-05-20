@@ -16,7 +16,7 @@ import torch
 import torch.fft as torch_fft
 import torch.nn.functional as F
 
-from agfb_filters.execution import BoundaryCondition, BoundaryMode
+from agfb_filters.runtime.execution import BoundaryCondition, BoundaryMode
 
 
 def check_input(image: torch.Tensor) -> torch.Tensor:

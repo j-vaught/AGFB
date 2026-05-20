@@ -10,8 +10,8 @@ import torch
 import torch.version as torch_version
 from torch.utils.benchmark import Timer
 
-from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import (
+from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.runtime.execution import (
     PATH_VERSION,
     BenchmarkConfig,
     BenchmarkResult,
@@ -20,7 +20,7 @@ from agfb_filters.execution import (
     ExecutionPlan,
     InputSignature,
 )
-from agfb_filters.runner import run_filter
+from agfb_filters.runtime.runner import run_filter
 
 
 class AutoRunner:

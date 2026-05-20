@@ -13,9 +13,14 @@ import math
 
 import torch
 
-from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
-from agfb_filters.runner import run_filter
+from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.runtime.execution import (
+    BoundaryCondition,
+    BoundaryMode,
+    ExecutionPath,
+    ExecutionPlan,
+)
+from agfb_filters.runtime.runner import run_filter
 
 
 def derivative_of_gaussian_definition(

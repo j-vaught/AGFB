@@ -8,9 +8,14 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
-from agfb_filters.runner import run_filter
+from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.runtime.execution import (
+    BoundaryCondition,
+    BoundaryMode,
+    ExecutionPath,
+    ExecutionPlan,
+)
+from agfb_filters.runtime.runner import run_filter
 
 _SMOOTH_KERNEL = torch.tensor([1.0])  # identity along the smoothing axis
 _DERIVATIVE_KERNEL = torch.tensor([-1.0, 0.0, 1.0]) / 2.0

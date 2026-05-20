@@ -6,15 +6,15 @@ import torch
 import torch.fft as torch_fft
 import torch.nn.functional as F
 
-from agfb_filters.base import check_input, pad_with_boundary, separable_gradient
-from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import (
+from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.runtime.execution import (
     BoundaryCondition,
     ExecutionPath,
     ExecutionPlan,
     InputSignature,
     concrete_path,
 )
+from agfb_filters.runtime.tensor_ops import check_input, pad_with_boundary, separable_gradient
 
 
 def run_filter(

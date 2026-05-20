@@ -86,6 +86,14 @@ def test_runner_can_apply_definition_directly_with_explicit_path() -> None:
     assert gradient_y.shape == image.shape
 
 
+def test_split_package_import_paths_are_available() -> None:
+    from agfb_filters.filters import sobel_definition as filters_sobel_definition
+    from agfb_filters.runtime import run_filter as runtime_run_filter
+
+    assert filters_sobel_definition is sobel_definition
+    assert runtime_run_filter is run_filter
+
+
 def test_dense_runner_paths_match_for_cpgf_definition() -> None:
     image = torch.randn(1, 16, 17)
     definition = cpgf_definition(radius=2, degree=2)
