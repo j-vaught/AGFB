@@ -127,7 +127,7 @@ def _specs() -> list[GeneratorSpec]:
             family="Edges And Transitions",
             name="roof_profile",
             title="Roof Profile Generator",
-            render=lambda: roof_profile(HEIGHT, WIDTH, width_px=88.0, theta_rad=0.0),
+            render=lambda: roof_profile(HEIGHT, WIDTH, roof_width=88.0, angle_rad=0.0),
         ),
         GeneratorSpec(
             family="Edges And Transitions",
