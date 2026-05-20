@@ -4,8 +4,18 @@ from __future__ import annotations
 
 import torch
 
-from agfb_generators.base import Frame, Numeric, infer_device, pack, validate_positive
-from agfb_generators.smoothed_step import smoothed_step
+from agfb_generators.base import (
+    Frame,
+    Numeric,
+    as_batch,
+    coord_grid,
+    gauss_Phi,
+    gauss_phi,
+    infer_batch_size,
+    infer_device,
+    pack,
+    validate_positive,
+)
 
 
 def smoothed_bar(
@@ -46,41 +56,26 @@ def smoothed_bar(
     validate_positive("bar_width", bar_width)
     validate_positive("edge_sigma", edge_sigma)
     device = infer_device(device, bar_width, angle_rad, center_offset, amplitude, edge_sigma)
-    half_width = bar_width / 2.0 if isinstance(bar_width, torch.Tensor) else float(bar_width) / 2.0
+    batch_size = infer_batch_size(bar_width, angle_rad, center_offset, amplitude, edge_sigma)
+    xx, yy = coord_grid(height, width, device, dtype)
 
-    if isinstance(center_offset, torch.Tensor):
-        positive_edge_offset = center_offset + half_width
-        negative_edge_offset = center_offset - half_width
-    elif isinstance(half_width, torch.Tensor):
-        positive_edge_offset = half_width + float(center_offset)
-        negative_edge_offset = -half_width + float(center_offset)
-    else:
-        positive_edge_offset = float(center_offset) + half_width
-        negative_edge_offset = float(center_offset) - half_width
+    bar_width_batch = as_batch(bar_width, batch_size, device, dtype)
+    angle_batch = as_batch(angle_rad, batch_size, device, dtype)
+    center_offset_batch = as_batch(center_offset, batch_size, device, dtype)
+    amplitude_batch = as_batch(amplitude, batch_size, device, dtype)
+    edge_sigma_batch = as_batch(edge_sigma, batch_size, device, dtype)
 
-    negative_amplitude = -amplitude if isinstance(amplitude, torch.Tensor) else -float(amplitude)
+    cos_angle = torch.cos(angle_batch)
+    sin_angle = torch.sin(angle_batch)
+    bar_coord = xx * cos_angle + yy * sin_angle - center_offset_batch
+    half_width = bar_width_batch / 2.0
 
-    rising_edge = smoothed_step(
-        height,
-        width,
-        angle_rad=angle_rad,
-        center_offset=negative_edge_offset,
-        amplitude=amplitude,
-        edge_sigma=edge_sigma,
-        device=device,
-        dtype=dtype,
+    low_edge_scaled = (bar_coord + half_width) / edge_sigma_batch
+    high_edge_scaled = (bar_coord - half_width) / edge_sigma_batch
+    intensity = amplitude_batch * (gauss_Phi(low_edge_scaled) - gauss_Phi(high_edge_scaled))
+    normal_gradient = (amplitude_batch / edge_sigma_batch) * (
+        gauss_phi(low_edge_scaled) - gauss_phi(high_edge_scaled)
     )
-    falling_edge = smoothed_step(
-        height,
-        width,
-        angle_rad=angle_rad,
-        center_offset=positive_edge_offset,
-        amplitude=negative_amplitude,
-        edge_sigma=edge_sigma,
-        device=device,
-        dtype=dtype,
-    )
-    intensity = rising_edge.I + falling_edge.I
-    gradient_x = rising_edge.gx + falling_edge.gx
-    gradient_y = rising_edge.gy + falling_edge.gy
+    gradient_x = normal_gradient * cos_angle
+    gradient_y = normal_gradient * sin_angle
     return pack(intensity, gradient_x, gradient_y)

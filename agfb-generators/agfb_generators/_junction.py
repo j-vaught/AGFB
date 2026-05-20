@@ -14,6 +14,7 @@ from agfb_generators.base import (
     gauss_Phi,
     gauss_phi,
     infer_batch_size,
+    infer_device,
     pack,
     validate_positive,
 )
@@ -43,7 +44,7 @@ def junction_frame(
     """
     validate_positive("arm_width_px", arm_width_px)
     validate_positive("sigma_e", sigma_e)
-    device = device or torch.device("cpu")
+    device = infer_device(device, *angles_rad, arm_width_px, x0, y0, contrast, sigma_e)
     batch_size = infer_batch_size(*angles_rad, arm_width_px, x0, y0, contrast, sigma_e)
     xx, yy = coord_grid(height, width, device, dtype)
 

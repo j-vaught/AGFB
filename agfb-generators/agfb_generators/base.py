@@ -109,13 +109,17 @@ def infer_device(device: torch.device | None, *params: Numeric) -> torch.device:
 
 
 def validate_positive(name: str, value: Numeric) -> None:
-    """Reject nonpositive scale parameters before analytic formulas divide by them."""
+    """Reject invalid CPU scale parameters without synchronizing accelerator batches."""
     if isinstance(value, torch.Tensor):
+        if value.numel() == 0:
+            raise ValueError(f"{name} must contain only finite values greater than zero")
+        if value.device.type != "cpu":
+            return
         finite = (
             torch.isfinite(value) if value.is_floating_point() else torch.ones_like(value).bool()
         )
         valid = finite & (value > 0)
-        if value.numel() == 0 or not bool(torch.all(valid).item()):
+        if not bool(torch.all(valid).item()):
             raise ValueError(f"{name} must contain only finite values greater than zero")
         return
 

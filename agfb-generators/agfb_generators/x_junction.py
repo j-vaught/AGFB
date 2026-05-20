@@ -7,7 +7,7 @@ import math
 import torch
 
 from agfb_generators._junction import junction_frame
-from agfb_generators.base import Frame, Numeric, infer_device, validate_positive
+from agfb_generators.base import Frame, Numeric
 
 _DEFAULT_X_JUNCTION_ANGLE_RAD = math.pi / 4.0
 
@@ -47,17 +47,6 @@ def smoothed_x_junction(
     `device` is omitted and a tensor parameter is passed, the render stays on
     that tensor's device.
     """
-    validate_positive("arm_width", arm_width)
-    validate_positive("edge_sigma", edge_sigma)
-    device = infer_device(
-        device,
-        arm_width,
-        angle_rad,
-        center_x,
-        center_y,
-        amplitude,
-        edge_sigma,
-    )
     return junction_frame(
         height,
         width,

@@ -107,9 +107,16 @@ def vessel_crossing_truth(
     junction_mask = branch_a_mask & branch_b_mask
     radius_map = torch.minimum(branch_a_distance, branch_b_distance)
 
-    branch_label = torch.zeros((batch_size, height, width), device=device, dtype=torch.long)
-    branch_label[centerline_mask & (branch_a_distance <= branch_b_distance)] = 1
-    branch_label[centerline_mask & (branch_b_distance < branch_a_distance)] = 2
+    nearest_branch_label = torch.where(
+        branch_a_distance <= branch_b_distance,
+        torch.ones((), device=device, dtype=torch.long),
+        torch.full((), 2, device=device, dtype=torch.long),
+    )
+    branch_label = torch.where(
+        centerline_mask,
+        nearest_branch_label,
+        torch.zeros((), device=device, dtype=torch.long),
+    )
     return {
         "centerline_mask": _maybe_drop_batch(centerline_mask, has_batched_input),
         "branch_label": _maybe_drop_batch(branch_label, has_batched_input),
