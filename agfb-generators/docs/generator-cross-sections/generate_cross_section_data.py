@@ -118,9 +118,9 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: smoothed_ramp(
                 HEIGHT,
                 WIDTH,
-                width_px=80.0,
-                theta_rad=0.0,
-                sigma_e=5.0,
+                ramp_width=80.0,
+                angle_rad=0.0,
+                edge_sigma=5.0,
             ),
         ),
         GeneratorSpec(

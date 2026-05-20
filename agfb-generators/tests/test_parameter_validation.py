@@ -36,7 +36,7 @@ from agfb_generators import (
         ("smoothed_bar_sigma", lambda: smoothed_bar(16, 16, edge_sigma=0.0)),
         (
             "smoothed_ramp_sigma",
-            lambda: smoothed_ramp(16, 16, width_px=8.0, theta_rad=0.0, sigma_e=0.0),
+            lambda: smoothed_ramp(16, 16, ramp_width=8.0, angle_rad=0.0, edge_sigma=0.0),
         ),
         ("curved_arc_sigma", lambda: curved_arc(16, 16, radius=8.0, edge_sigma=0.0)),
         ("mach_band_edge_sigma", lambda: mach_band(16, 16, edge_sigma=0.0)),

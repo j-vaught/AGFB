@@ -188,9 +188,9 @@ def test_smoothed_ramp_gradient_matches_fd() -> None:
     f = smoothed_ramp(
         256,
         256,
-        width_px=48.0,
-        theta_rad=math.radians(20.0),
-        sigma_e=4.0,
+        ramp_width=48.0,
+        angle_rad=math.radians(20.0),
+        edge_sigma=4.0,
     )
     _check_signal_mask(f, rel_tol=1e-3, name="smoothed_ramp")
 
@@ -220,7 +220,7 @@ def test_mach_band_has_opposite_shoulders() -> None:
         shoulder_amplitude=0.1,
         shoulder_sigma=2.0,
     )
-    base = smoothed_ramp(1, 129, width_px=32.0, theta_rad=0.0, sigma_e=2.0)
+    base = smoothed_ramp(1, 129, ramp_width=32.0, angle_rad=0.0, edge_sigma=2.0)
     x = torch.arange(129, dtype=torch.float32) - 64.0
     low_idx = int(torch.argmin(torch.abs(x + 16.0)))
     high_idx = int(torch.argmin(torch.abs(x - 16.0)))
@@ -257,19 +257,19 @@ def test_mach_band_infers_tensor_device() -> None:
 def test_smoothed_ramp_batched_consistent_with_scalar() -> None:
     """Verify batched smoothed-ramp rendering matches scalar calls."""
     H = W = 96
-    width_px = torch.tensor([16.0, 24.0, 32.0])
-    theta = torch.tensor([0.0, math.radians(20.0), math.radians(45.0)])
-    x0 = torch.tensor([-3.0, 0.0, 5.0])
-    contrast = torch.tensor([0.8, 1.0, 1.2])
-    sigma_e = torch.tensor([2.0, 3.0, 4.0])
+    ramp_width = torch.tensor([16.0, 24.0, 32.0])
+    angle = torch.tensor([0.0, math.radians(20.0), math.radians(45.0)])
+    center_offset = torch.tensor([-3.0, 0.0, 5.0])
+    amplitude = torch.tensor([0.8, 1.0, 1.2])
+    edge_sigma = torch.tensor([2.0, 3.0, 4.0])
     out = smoothed_ramp(
         H,
         W,
-        width_px=width_px,
-        theta_rad=theta,
-        x0=x0,
-        contrast=contrast,
-        sigma_e=sigma_e,
+        ramp_width=ramp_width,
+        angle_rad=angle,
+        center_offset=center_offset,
+        amplitude=amplitude,
+        edge_sigma=edge_sigma,
     )
 
     assert out.I.shape == (3, H, W)
@@ -278,15 +278,57 @@ def test_smoothed_ramp_batched_consistent_with_scalar() -> None:
         single = smoothed_ramp(
             H,
             W,
-            width_px=float(width_px[i]),
-            theta_rad=float(theta[i]),
-            x0=float(x0[i]),
-            contrast=float(contrast[i]),
-            sigma_e=float(sigma_e[i]),
+            ramp_width=float(ramp_width[i]),
+            angle_rad=float(angle[i]),
+            center_offset=float(center_offset[i]),
+            amplitude=float(amplitude[i]),
+            edge_sigma=float(edge_sigma[i]),
         )
         assert torch.allclose(out.I[i], single.I[0])
         assert torch.allclose(out.gx[i], single.gx[0])
         assert torch.allclose(out.gy[i], single.gy[0])
+
+
+def test_smoothed_ramp_default_call_renders_frame() -> None:
+    """Verify smoothed-ramp defaults render a usable analytic frame."""
+    frame = smoothed_ramp(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
+def test_smoothed_ramp_honors_requested_device() -> None:
+    """Verify scalar smoothed-ramp inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = smoothed_ramp(
+        20,
+        24,
+        ramp_width=12.0,
+        angle_rad=0.25,
+        edge_sigma=2.0,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_smoothed_ramp_infers_tensor_device() -> None:
+    """Verify tensor inputs keep smoothed-ramp output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = smoothed_ramp(
+        20,
+        24,
+        ramp_width=torch.tensor([12.0, 16.0], device=device),
+        angle_rad=torch.tensor([0.0, 0.25], device=device),
+        edge_sigma=2.0,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_transition_generators_preserve_requested_dtype() -> None:
@@ -301,9 +343,9 @@ def test_transition_generators_preserve_requested_dtype() -> None:
     f = smoothed_ramp(
         16,
         16,
-        width_px=8.0,
-        theta_rad=0.25,
-        sigma_e=2.0,
+        ramp_width=8.0,
+        angle_rad=0.25,
+        edge_sigma=2.0,
         dtype=torch.float64,
     )
     assert finite.I.dtype == torch.float64
