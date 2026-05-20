@@ -273,16 +273,16 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: smoothed_t_junction(
                 HEIGHT,
                 WIDTH,
-                arm_width_px=18.0,
-                theta_rad=0.0,
-                sigma_e=3.0,
+                arm_width=18.0,
+                angle_rad=0.0,
+                edge_sigma=3.0,
             ),
         ),
         GeneratorSpec(
             family="Junctions",
             name="hard_t_junction",
             title="Hard T Junction Generator",
-            render=lambda: hard_t_junction(HEIGHT, WIDTH, arm_width_px=18.0, theta_rad=0.0),
+            render=lambda: hard_t_junction(HEIGHT, WIDTH, arm_width=18.0, angle_rad=0.0),
         ),
         GeneratorSpec(
             family="Junctions",

@@ -47,7 +47,7 @@ from agfb_generators import (
         ),
         (
             "smoothed_t_junction_sigma",
-            lambda: smoothed_t_junction(16, 16, arm_width_px=8.0, sigma_e=0.0),
+            lambda: smoothed_t_junction(16, 16, arm_width=8.0, edge_sigma=0.0),
         ),
         ("gaussian_blob_sigma", lambda: gaussian_blob(16, 16, scale_sigma=0.0)),
         ("gaussian_ridge_sigma", lambda: gaussian_ridge(16, 16, width_sigma=0.0, angle_rad=0.0)),

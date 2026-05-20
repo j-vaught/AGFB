@@ -34,11 +34,11 @@ def test_smoothed_junction_gradients_match_fd() -> None:
             lambda: smoothed_t_junction(
                 256,
                 256,
-                arm_width_px=28.0,
-                theta_rad=math.radians(20.0),
-                x0=0.25,
-                y0=-0.25,
-                sigma_e=4.0,
+                arm_width=28.0,
+                angle_rad=math.radians(20.0),
+                center_x=0.25,
+                center_y=-0.25,
+                edge_sigma=4.0,
             ),
         ),
         (
@@ -90,10 +90,10 @@ def test_hard_junction_gradients_match_fd_relaxed() -> None:
             lambda: hard_t_junction(
                 256,
                 256,
-                arm_width_px=28.0,
-                theta_rad=math.radians(20.0),
-                x0=0.25,
-                y0=-0.25,
+                arm_width=28.0,
+                angle_rad=math.radians(20.0),
+                center_x=0.25,
+                center_y=-0.25,
             ),
         ),
         (
@@ -298,26 +298,73 @@ def test_smoothed_l_junction_infers_tensor_device() -> None:
     assert frame.g.device == device
 
 
-def test_smoothed_junction_batched_consistent_with_scalar() -> None:
-    """Verify batched junction rendering matches repeated scalar renders."""
+def test_smoothed_t_junction_default_call_renders_frame() -> None:
+    """Verify T-junction defaults render a usable analytic frame."""
+    frame = smoothed_t_junction(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
+def test_smoothed_t_junction_honors_requested_device() -> None:
+    """Verify scalar T-junction inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = smoothed_t_junction(
+        20,
+        24,
+        arm_width=8.0,
+        angle_rad=math.radians(20.0),
+        center_x=1.0,
+        center_y=-1.0,
+        amplitude=1.2,
+        edge_sigma=2.0,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_smoothed_t_junction_infers_tensor_device() -> None:
+    """Verify tensor inputs keep T-junction output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = smoothed_t_junction(
+        20,
+        24,
+        arm_width=torch.tensor([8.0, 10.0], device=device),
+        angle_rad=torch.tensor([0.0, math.radians(20.0)], device=device),
+        center_x=1.0,
+        center_y=-1.0,
+        amplitude=1.2,
+        edge_sigma=2.0,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_smoothed_t_junction_batched_consistent_with_scalar() -> None:
+    """Verify batched T-junction rendering matches repeated scalar renders."""
     H = 80
     W = 84
-    thetas = torch.tensor([0.0, math.radians(22.5), math.radians(45.0)])
-    widths = torch.tensor([10.0, 14.0, 18.0])
-    x0 = torch.tensor([0.0, 1.0, -1.5])
-    y0 = torch.tensor([0.0, -0.75, 1.25])
-    contrast = torch.tensor([1.0, 0.75, 1.25])
-    sigma = torch.tensor([2.0, 3.0, 4.0])
+    angles = torch.tensor([0.0, math.radians(22.5), math.radians(45.0)])
+    arm_width = torch.tensor([10.0, 14.0, 18.0])
+    center_x = torch.tensor([0.0, 1.0, -1.5])
+    center_y = torch.tensor([0.0, -0.75, 1.25])
+    amplitude = torch.tensor([1.0, 0.75, 1.25])
+    edge_sigma = torch.tensor([2.0, 3.0, 4.0])
 
     out = smoothed_t_junction(
         H,
         W,
-        arm_width_px=widths,
-        theta_rad=thetas,
-        x0=x0,
-        y0=y0,
-        contrast=contrast,
-        sigma_e=sigma,
+        arm_width=arm_width,
+        angle_rad=angles,
+        center_x=center_x,
+        center_y=center_y,
+        amplitude=amplitude,
+        edge_sigma=edge_sigma,
     )
     assert out.I.shape == (3, H, W)
 
@@ -325,12 +372,12 @@ def test_smoothed_junction_batched_consistent_with_scalar() -> None:
         single = smoothed_t_junction(
             H,
             W,
-            arm_width_px=float(widths[i]),
-            theta_rad=float(thetas[i]),
-            x0=float(x0[i]),
-            y0=float(y0[i]),
-            contrast=float(contrast[i]),
-            sigma_e=float(sigma[i]),
+            arm_width=float(arm_width[i]),
+            angle_rad=float(angles[i]),
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            amplitude=float(amplitude[i]),
+            edge_sigma=float(edge_sigma[i]),
         )
         assert torch.allclose(out.I[i], single.I[0], rtol=1e-6, atol=1e-6)
         assert torch.allclose(out.gx[i], single.gx[0], rtol=1e-6, atol=1e-6)
