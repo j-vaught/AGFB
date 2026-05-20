@@ -291,9 +291,9 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: smoothed_y_junction(
                 HEIGHT,
                 WIDTH,
-                arm_width_px=16.0,
-                theta_rad=-math.pi / 2.0,
-                sigma_e=3.0,
+                arm_width=16.0,
+                angle_rad=-math.pi / 2.0,
+                edge_sigma=3.0,
             ),
         ),
         GeneratorSpec(
@@ -303,8 +303,8 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: hard_y_junction(
                 HEIGHT,
                 WIDTH,
-                arm_width_px=16.0,
-                theta_rad=-math.pi / 2.0,
+                arm_width=16.0,
+                angle_rad=-math.pi / 2.0,
             ),
         ),
         GeneratorSpec(
