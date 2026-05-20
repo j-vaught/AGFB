@@ -1,6 +1,6 @@
 [project]
 name = "agfb-generators"
-version = "0.0.1"
+version = "0.1.0"
 description = "Batched analytic image generators for the Analytic Gradient Filter Benchmark"
 readme = "README.md"
 license = "MIT"
