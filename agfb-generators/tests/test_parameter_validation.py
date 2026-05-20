@@ -24,6 +24,7 @@ from agfb_generators import (
     smoothed_ramp,
     smoothed_step,
     smoothed_t_junction,
+    smoothed_x_junction,
     vessel_bifurcation,
     vessel_bifurcation_truth,
     vessel_crossing,
@@ -50,6 +51,10 @@ from agfb_generators import (
         (
             "smoothed_t_junction_sigma",
             lambda: smoothed_t_junction(16, 16, arm_width=8.0, edge_sigma=0.0),
+        ),
+        (
+            "smoothed_x_junction_sigma",
+            lambda: smoothed_x_junction(16, 16, arm_width=8.0, edge_sigma=0.0),
         ),
         ("gaussian_blob_sigma", lambda: gaussian_blob(16, 16, scale_sigma=0.0)),
         ("gaussian_ridge_sigma", lambda: gaussian_ridge(16, 16, width_sigma=0.0, angle_rad=0.0)),
