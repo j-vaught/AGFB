@@ -30,7 +30,6 @@ def mach_band(
     shoulder_sigma: Numeric = 4.0,
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
-    **legacy_kwargs: Numeric,
 ) -> Frame:
     """Render a batched smoothed ramp with paired Mach-band shoulders.
 
@@ -59,25 +58,6 @@ def mach_band(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
-    (
-        ramp_width,
-        angle_rad,
-        center_offset,
-        amplitude,
-        edge_sigma,
-        shoulder_amplitude,
-        shoulder_sigma,
-    ) = _apply_legacy_aliases(
-        legacy_kwargs,
-        ramp_width=ramp_width,
-        angle_rad=angle_rad,
-        center_offset=center_offset,
-        amplitude=amplitude,
-        edge_sigma=edge_sigma,
-        shoulder_amplitude=shoulder_amplitude,
-        shoulder_sigma=shoulder_sigma,
-    )
-
     device = infer_device(
         device,
         ramp_width,
@@ -149,48 +129,3 @@ def mach_band(
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
     return pack(intensity, gradient_x, gradient_y)
-
-
-def _apply_legacy_aliases(
-    legacy_kwargs: dict[str, Numeric],
-    *,
-    ramp_width: Numeric,
-    angle_rad: Numeric,
-    center_offset: Numeric,
-    amplitude: Numeric,
-    edge_sigma: Numeric,
-    shoulder_amplitude: Numeric,
-    shoulder_sigma: Numeric,
-) -> tuple[Numeric, Numeric, Numeric, Numeric, Numeric, Numeric, Numeric]:
-    alias_map = {
-        "width_px": "ramp_width",
-        "theta_rad": "angle_rad",
-        "x0": "center_offset",
-        "contrast": "amplitude",
-        "sigma_e": "edge_sigma",
-        "band_strength": "shoulder_amplitude",
-        "band_sigma": "shoulder_sigma",
-    }
-    params = {
-        "ramp_width": ramp_width,
-        "angle_rad": angle_rad,
-        "center_offset": center_offset,
-        "amplitude": amplitude,
-        "edge_sigma": edge_sigma,
-        "shoulder_amplitude": shoulder_amplitude,
-        "shoulder_sigma": shoulder_sigma,
-    }
-    for legacy_name, value in legacy_kwargs.items():
-        parameter_name = alias_map.get(legacy_name)
-        if parameter_name is None:
-            raise TypeError(f"unexpected keyword argument: {legacy_name}")
-        params[parameter_name] = value
-    return (
-        params["ramp_width"],
-        params["angle_rad"],
-        params["center_offset"],
-        params["amplitude"],
-        params["edge_sigma"],
-        params["shoulder_amplitude"],
-        params["shoulder_sigma"],
-    )

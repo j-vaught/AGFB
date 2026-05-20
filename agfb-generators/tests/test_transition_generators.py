@@ -164,35 +164,6 @@ def test_mach_band_default_call_renders_frame() -> None:
     assert torch.isfinite(frame.g).all()
 
 
-def test_mach_band_legacy_names_match_preferred_names() -> None:
-    """Verify the old Mach-band keyword aliases preserve existing callers."""
-    preferred = mach_band(
-        64,
-        68,
-        ramp_width=24.0,
-        angle_rad=math.radians(15.0),
-        center_offset=-2.0,
-        amplitude=1.2,
-        edge_sigma=3.0,
-        shoulder_amplitude=0.09,
-        shoulder_sigma=4.0,
-    )
-    legacy = mach_band(
-        64,
-        68,
-        width_px=24.0,
-        theta_rad=math.radians(15.0),
-        x0=-2.0,
-        contrast=1.2,
-        sigma_e=3.0,
-        band_strength=0.09,
-        band_sigma=4.0,
-    )
-
-    assert torch.allclose(preferred.I, legacy.I)
-    assert torch.allclose(preferred.g, legacy.g)
-
-
 def test_mach_band_infers_tensor_device() -> None:
     """Verify tensor inputs keep Mach-band output on the same device."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
