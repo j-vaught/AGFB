@@ -13,32 +13,45 @@ import math
 
 import torch
 
-from agfb_filters.base import check_input, separable_gradient
+from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.runner import run_filter
+
+
+def derivative_of_gaussian_definition(
+    sigma: float,
+    truncate: float = 4.0,
+) -> GradientFilterDefinition:
+    if sigma <= 0:
+        raise ValueError(f"sigma must be positive, got {sigma}")
+    radius = max(1, int(math.ceil(truncate * sigma)))
+    offsets = torch.arange(-radius, radius + 1, dtype=torch.float64)
+    gaussian_kernel = torch.exp(-0.5 * (offsets / sigma) ** 2)
+    gaussian_kernel = gaussian_kernel / gaussian_kernel.sum()
+    derivative_kernel = -(offsets / (sigma**2)) * gaussian_kernel
+    derivative_kernel = derivative_kernel - derivative_kernel.mean()
+    return GradientFilterDefinition(
+        name="derivative_of_gaussian",
+        padding_mode="replicate",
+        smooth_kernel_1d=gaussian_kernel.to(torch.float32),
+        derivative_kernel_1d=derivative_kernel.to(torch.float32),
+        strategy_hint=ExecutionStrategy.SEPARABLE,
+        support="separable",
+        metadata={"sigma": float(sigma), "truncate": float(truncate), "radius": radius},
+    )
 
 
 class DerivativeOfGaussian:
     """Holds prebuilt 1-D smoothing and derivative kernels."""
 
     def __init__(self, sigma: float, truncate: float = 4.0) -> None:
-        if sigma <= 0:
-            raise ValueError(f"sigma must be positive, got {sigma}")
-        radius = max(1, int(math.ceil(truncate * sigma)))
-        offsets = torch.arange(-radius, radius + 1, dtype=torch.float64)
-        gaussian_kernel = torch.exp(-0.5 * (offsets / sigma) ** 2)
-        gaussian_kernel = gaussian_kernel / gaussian_kernel.sum()
-        derivative_kernel = -(offsets / (sigma**2)) * gaussian_kernel
-        derivative_kernel = derivative_kernel - derivative_kernel.mean()
         self.sigma = float(sigma)
-        self.radius = radius
-        self.smooth_kernel = gaussian_kernel.to(torch.float32)
-        self.derivative_kernel = derivative_kernel.to(torch.float32)
+        self.definition = derivative_of_gaussian_definition(sigma=sigma, truncate=truncate)
+        self.radius = int(self.definition.metadata["radius"])
 
-    def apply(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        image = check_input(image)
-        smooth_kernel = self.smooth_kernel.to(device=image.device, dtype=image.dtype)
-        derivative_kernel = self.derivative_kernel.to(device=image.device, dtype=image.dtype)
-        return separable_gradient(
-            image,
-            smooth_kernel_1d=smooth_kernel,
-            derivative_kernel_1d=derivative_kernel,
-        )
+    def apply(
+        self,
+        image: torch.Tensor,
+        *,
+        strategy: ExecutionStrategy | str = ExecutionStrategy.AUTO,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return run_filter(self.definition, image, strategy=strategy)

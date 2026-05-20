@@ -1,29 +1,54 @@
 """Batched, GPU-accelerated filters for the Analytical Gradient Filter Benchmark."""
 
-from agfb_filters.agfb import AGFB, agfb_kernels
-from agfb_filters.central_difference import central_difference
-from agfb_filters.derivative_of_gaussian import DerivativeOfGaussian
-from agfb_filters.farid_simoncelli import farid_simoncelli_5
-from agfb_filters.freeman_adelson import FreemanAdelsonG1
-from agfb_filters.prewitt import prewitt_3
-from agfb_filters.roberts import roberts
-from agfb_filters.savitzky_golay import SavitzkyGolay, savitzky_golay_kernels
-from agfb_filters.scharr import scharr_3
-from agfb_filters.sobel import sobel_3, sobel_5, sobel_7
+from agfb_filters.agfb import AGFB, agfb_definition, agfb_kernels
+from agfb_filters.central_difference import central_difference, central_difference_definition
+from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.derivative_of_gaussian import (
+    DerivativeOfGaussian,
+    derivative_of_gaussian_definition,
+)
+from agfb_filters.farid_simoncelli import (
+    farid_simoncelli_5,
+    farid_simoncelli_5_definition,
+)
+from agfb_filters.freeman_adelson import FreemanAdelsonG1, freeman_adelson_g1_definition
+from agfb_filters.prewitt import prewitt_3, prewitt_3_definition
+from agfb_filters.roberts import roberts, roberts_definition
+from agfb_filters.runner import run_filter
+from agfb_filters.savitzky_golay import (
+    SavitzkyGolay,
+    savitzky_golay_definition,
+    savitzky_golay_kernels,
+)
+from agfb_filters.scharr import scharr_3, scharr_3_definition
+from agfb_filters.sobel import sobel_3, sobel_5, sobel_7, sobel_definition
 
 __all__ = [
     "AGFB",
     "DerivativeOfGaussian",
+    "ExecutionStrategy",
     "FreemanAdelsonG1",
+    "GradientFilterDefinition",
     "SavitzkyGolay",
+    "agfb_definition",
     "agfb_kernels",
     "central_difference",
+    "central_difference_definition",
+    "derivative_of_gaussian_definition",
     "farid_simoncelli_5",
+    "farid_simoncelli_5_definition",
+    "freeman_adelson_g1_definition",
     "prewitt_3",
+    "prewitt_3_definition",
     "roberts",
+    "roberts_definition",
+    "run_filter",
     "scharr_3",
+    "scharr_3_definition",
+    "savitzky_golay_definition",
     "savitzky_golay_kernels",
     "sobel_3",
     "sobel_5",
     "sobel_7",
+    "sobel_definition",
 ]

@@ -18,13 +18,36 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.derivative_of_gaussian import DerivativeOfGaussian
+from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.derivative_of_gaussian import derivative_of_gaussian_definition
+from agfb_filters.runner import run_filter
+
+
+def freeman_adelson_g1_definition(
+    sigma: float,
+    truncate: float = 4.0,
+) -> GradientFilterDefinition:
+    derivative_definition = derivative_of_gaussian_definition(sigma=sigma, truncate=truncate)
+    return GradientFilterDefinition(
+        name="freeman_adelson_g1",
+        padding_mode=derivative_definition.padding_mode,
+        smooth_kernel_1d=derivative_definition.smooth_kernel_1d,
+        derivative_kernel_1d=derivative_definition.derivative_kernel_1d,
+        strategy_hint=ExecutionStrategy.SEPARABLE,
+        support=derivative_definition.support,
+        metadata=derivative_definition.metadata,
+    )
 
 
 class FreemanAdelsonG1:
     def __init__(self, sigma: float, truncate: float = 4.0) -> None:
         self.sigma = float(sigma)
-        self._derivative_of_gaussian = DerivativeOfGaussian(sigma=sigma, truncate=truncate)
+        self.definition = freeman_adelson_g1_definition(sigma=sigma, truncate=truncate)
 
-    def apply(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        return self._derivative_of_gaussian.apply(image)
+    def apply(
+        self,
+        image: torch.Tensor,
+        *,
+        strategy: ExecutionStrategy | str = ExecutionStrategy.AUTO,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return run_filter(self.definition, image, strategy=strategy)

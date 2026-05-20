@@ -6,9 +6,13 @@ with the binomial smoother `[1, 2, 1] / 4`.
 
 from __future__ import annotations
 
+from functools import cache
+
 import torch
 
-from agfb_filters.base import check_input, linear_convolution_1d, separable_gradient
+from agfb_filters.base import linear_convolution_1d
+from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.runner import run_filter
 
 _SMOOTH_KERNEL_3 = torch.tensor([1.0, 2.0, 1.0]) / 4.0
 _DERIVATIVE_KERNEL_3 = torch.tensor([-1.0, 0.0, 1.0]) / 2.0
@@ -25,25 +29,27 @@ def _build_kernels(kernel_size: int) -> tuple[torch.Tensor, torch.Tensor]:
     return smooth, derivative
 
 
-def _apply(image: torch.Tensor, kernel_size: int) -> tuple[torch.Tensor, torch.Tensor]:
-    image = check_input(image)
+@cache
+def sobel_definition(kernel_size: int) -> GradientFilterDefinition:
     smooth_kernel, derivative_kernel = _build_kernels(kernel_size)
-    smooth_kernel = smooth_kernel.to(device=image.device, dtype=image.dtype)
-    derivative_kernel = derivative_kernel.to(device=image.device, dtype=image.dtype)
-    return separable_gradient(
-        image,
+    return GradientFilterDefinition(
+        name=f"sobel_{kernel_size}",
+        padding_mode="replicate",
         smooth_kernel_1d=smooth_kernel,
         derivative_kernel_1d=derivative_kernel,
+        strategy_hint=ExecutionStrategy.SEPARABLE,
+        support="separable",
+        metadata={"kernel_size": kernel_size},
     )
 
 
 def sobel_3(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    return _apply(image, 3)
+    return run_filter(sobel_definition(3), image)
 
 
 def sobel_5(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    return _apply(image, 5)
+    return run_filter(sobel_definition(5), image)
 
 
 def sobel_7(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    return _apply(image, 7)
+    return run_filter(sobel_definition(7), image)

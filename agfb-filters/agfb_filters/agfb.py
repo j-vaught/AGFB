@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.base import check_input, fft_cross_correlation
+from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
 from agfb_filters.polynomial import build_polynomial_gradient_kernels
+from agfb_filters.runner import run_filter
 
 
 def agfb_kernels(
@@ -32,16 +33,35 @@ def agfb_kernels(
     )
 
 
+def agfb_definition(
+    radius: int,
+    degree: int,
+    device: torch.device | None = None,
+) -> GradientFilterDefinition:
+    kernel_x, kernel_y = agfb_kernels(radius=radius, degree=degree, device=device)
+    return GradientFilterDefinition(
+        name="agfb",
+        padding_mode="reflect",
+        kernel_x=kernel_x,
+        kernel_y=kernel_y,
+        strategy_hint=ExecutionStrategy.AUTO,
+        support="disc",
+        metadata={"radius": int(radius), "degree": int(degree)},
+    )
+
+
 class AGFB:
     """Holds prebuilt AGFB kernels for one `(radius, degree)` configuration."""
 
     def __init__(self, radius: int, degree: int, device: torch.device | None = None) -> None:
         self.radius = int(radius)
         self.degree = int(degree)
-        self.kernel_x, self.kernel_y = agfb_kernels(radius=radius, degree=degree, device=device)
+        self.definition = agfb_definition(radius=radius, degree=degree, device=device)
 
-    def apply(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        image = check_input(image)
-        kernel_x = self.kernel_x.to(device=image.device, dtype=image.dtype)
-        kernel_y = self.kernel_y.to(device=image.device, dtype=image.dtype)
-        return fft_cross_correlation(image, (kernel_x, kernel_y), pad_mode="reflect")
+    def apply(
+        self,
+        image: torch.Tensor,
+        *,
+        strategy: ExecutionStrategy | str = ExecutionStrategy.AUTO,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return run_filter(self.definition, image, strategy=strategy)
