@@ -220,14 +220,14 @@ def test_vessel_crossing_gradient_matches_fd() -> None:
     f = vessel_crossing(
         256,
         256,
-        sigma_a=5.0,
-        sigma_b=7.0,
-        theta_a_rad=math.radians(20.0),
-        theta_b_rad=math.radians(115.0),
-        contrast_a=0.8,
-        contrast_b=1.2,
-        u0_a=-1.0,
-        u0_b=2.0,
+        branch_a_width_sigma=5.0,
+        branch_b_width_sigma=7.0,
+        branch_a_normal_angle_rad=math.radians(20.0),
+        branch_b_normal_angle_rad=math.radians(115.0),
+        branch_a_amplitude=0.8,
+        branch_b_amplitude=1.2,
+        branch_a_center_offset=-1.0,
+        branch_b_center_offset=2.0,
     )
     _check_signal_mask(f, rel_tol=1e-3, name="vessel_crossing")
 
@@ -236,16 +236,192 @@ def test_vessel_bifurcation_gradient_matches_fd() -> None:
     f = vessel_bifurcation(
         256,
         256,
-        sigma_trunk=5.0,
-        sigma_left=4.5,
-        sigma_right=5.5,
-        theta_trunk_rad=math.radians(90.0),
-        theta_left_rad=math.radians(40.0),
-        theta_right_rad=math.radians(140.0),
-        contrast=1.0,
-        gate_sigma=10.0,
+        trunk_width_sigma=5.0,
+        left_width_sigma=4.5,
+        right_width_sigma=5.5,
+        trunk_tangent_angle_rad=math.radians(90.0),
+        left_tangent_angle_rad=math.radians(40.0),
+        right_tangent_angle_rad=math.radians(140.0),
+        amplitude=1.0,
+        branch_gate_sigma=10.0,
     )
     _check_signal_mask(f, rel_tol=2e-3, name="vessel_bifurcation")
+
+
+def test_vessel_crossing_default_call_renders_frame() -> None:
+    frame = vessel_crossing(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
+def test_vessel_bifurcation_default_call_renders_frame() -> None:
+    frame = vessel_bifurcation(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
+def test_vessel_crossing_batched_consistent_with_scalar() -> None:
+    branch_a_width = torch.tensor([4.0, 5.0, 6.0])
+    branch_b_width = torch.tensor([3.0, 4.0, 5.0])
+    branch_a_angle = torch.tensor([math.radians(15.0), math.radians(25.0), math.radians(35.0)])
+    branch_b_angle = torch.tensor([math.radians(100.0), math.radians(115.0), math.radians(130.0)])
+    branch_a_amplitude = torch.tensor([0.8, 1.0, 1.2])
+    branch_b_amplitude = torch.tensor([1.2, 1.0, 0.8])
+    branch_a_offset = torch.tensor([-2.0, 0.0, 2.0])
+    branch_b_offset = torch.tensor([2.0, 0.0, -2.0])
+
+    out = vessel_crossing(
+        80,
+        84,
+        branch_a_width_sigma=branch_a_width,
+        branch_b_width_sigma=branch_b_width,
+        branch_a_normal_angle_rad=branch_a_angle,
+        branch_b_normal_angle_rad=branch_b_angle,
+        branch_a_amplitude=branch_a_amplitude,
+        branch_b_amplitude=branch_b_amplitude,
+        branch_a_center_offset=branch_a_offset,
+        branch_b_center_offset=branch_b_offset,
+    )
+
+    assert out.I.shape == (3, 80, 84)
+    assert out.g.shape == (3, 2, 80, 84)
+    for i in range(3):
+        single = vessel_crossing(
+            80,
+            84,
+            branch_a_width_sigma=float(branch_a_width[i]),
+            branch_b_width_sigma=float(branch_b_width[i]),
+            branch_a_normal_angle_rad=float(branch_a_angle[i]),
+            branch_b_normal_angle_rad=float(branch_b_angle[i]),
+            branch_a_amplitude=float(branch_a_amplitude[i]),
+            branch_b_amplitude=float(branch_b_amplitude[i]),
+            branch_a_center_offset=float(branch_a_offset[i]),
+            branch_b_center_offset=float(branch_b_offset[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_vessel_bifurcation_batched_consistent_with_scalar() -> None:
+    trunk_width = torch.tensor([4.0, 5.0, 6.0])
+    left_width = torch.tensor([3.5, 4.0, 4.5])
+    right_width = torch.tensor([4.5, 4.0, 3.5])
+    trunk_angle = torch.tensor([math.radians(-90.0), math.radians(-80.0), math.radians(-100.0)])
+    left_angle = torch.tensor([math.radians(35.0), math.radians(45.0), math.radians(55.0)])
+    right_angle = torch.tensor([math.radians(145.0), math.radians(135.0), math.radians(125.0)])
+    center_x = torch.tensor([-2.0, 0.0, 2.0])
+    center_y = torch.tensor([1.0, 0.0, -1.0])
+    amplitude = torch.tensor([0.8, 1.0, 1.2])
+    branch_gate_sigma = torch.tensor([3.0, 4.0, 5.0])
+
+    out = vessel_bifurcation(
+        80,
+        84,
+        trunk_width_sigma=trunk_width,
+        left_width_sigma=left_width,
+        right_width_sigma=right_width,
+        trunk_tangent_angle_rad=trunk_angle,
+        left_tangent_angle_rad=left_angle,
+        right_tangent_angle_rad=right_angle,
+        center_x=center_x,
+        center_y=center_y,
+        amplitude=amplitude,
+        branch_gate_sigma=branch_gate_sigma,
+    )
+
+    assert out.I.shape == (3, 80, 84)
+    assert out.g.shape == (3, 2, 80, 84)
+    for i in range(3):
+        single = vessel_bifurcation(
+            80,
+            84,
+            trunk_width_sigma=float(trunk_width[i]),
+            left_width_sigma=float(left_width[i]),
+            right_width_sigma=float(right_width[i]),
+            trunk_tangent_angle_rad=float(trunk_angle[i]),
+            left_tangent_angle_rad=float(left_angle[i]),
+            right_tangent_angle_rad=float(right_angle[i]),
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            amplitude=float(amplitude[i]),
+            branch_gate_sigma=float(branch_gate_sigma[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_vessel_crossing_honors_requested_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = vessel_crossing(
+        20,
+        24,
+        branch_a_width_sigma=5.0,
+        branch_b_width_sigma=4.0,
+        branch_a_amplitude=0.8,
+        branch_b_amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_vessel_crossing_infers_tensor_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = vessel_crossing(
+        20,
+        24,
+        branch_a_width_sigma=torch.tensor([5.0, 6.0], device=device),
+        branch_b_width_sigma=4.0,
+        branch_a_normal_angle_rad=torch.tensor([0.0, math.radians(20.0)], device=device),
+        branch_b_normal_angle_rad=math.radians(115.0),
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_vessel_bifurcation_honors_requested_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = vessel_bifurcation(
+        20,
+        24,
+        trunk_width_sigma=5.0,
+        left_width_sigma=4.0,
+        right_width_sigma=4.0,
+        amplitude=1.2,
+        branch_gate_sigma=4.0,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_vessel_bifurcation_infers_tensor_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = vessel_bifurcation(
+        20,
+        24,
+        trunk_width_sigma=torch.tensor([5.0, 6.0], device=device),
+        left_width_sigma=4.0,
+        right_width_sigma=4.0,
+        trunk_tangent_angle_rad=torch.tensor(
+            [math.radians(-90.0), math.radians(-80.0)], device=device
+        ),
+        branch_gate_sigma=4.0,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_asymmetric_ridge_batched_consistent_with_scalar() -> None:
