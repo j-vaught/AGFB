@@ -1,7 +1,7 @@
 [project]
-name = "cpgf-filters"
+name = "agfb-filters"
 version = "0.0.1"
-description = "Batched, GPU-accelerated comparator gradient filters for the CPGF benchmark"
+description = "Batched, GPU-accelerated filters for the Analytical Gradient Filter Benchmark"
 authors = [{ name = "J.C. Vaught" }]
 requires-python = ">=3.11"
 
@@ -41,4 +41,3 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
-ignore = ["E741"]  # `I` is the intensity field, per spec math notation
