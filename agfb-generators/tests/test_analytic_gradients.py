@@ -299,7 +299,7 @@ def test_gaussian_ridge_infers_tensor_device() -> None:
 
 def test_smoothed_bar_gradient_matches_fd() -> None:
     """Check the paired-edge soft bar assembled from smoothed steps."""
-    f = smoothed_bar(256, 256, width_px=32.0, theta_rad=math.radians(15.0), sigma_e=4.0)
+    f = smoothed_bar(256, 256, bar_width=32.0, angle_rad=math.radians(15.0), edge_sigma=4.0)
     _check_signal_mask(f, rel_tol=1e-3, name="smoothed_bar")
 
 

@@ -9,6 +9,7 @@ import torch
 from agfb_generators.asymmetric_ridge import asymmetric_ridge
 from agfb_generators.base import Frame
 from agfb_generators.curved_ridge import curved_ridge
+from agfb_generators.smoothed_bar import smoothed_bar
 from agfb_generators.vessel_junction import vessel_bifurcation, vessel_crossing
 from agfb_generators.vessel_truth import vessel_bifurcation_truth, vessel_crossing_truth
 
@@ -71,6 +72,80 @@ def test_curved_ridge_gradient_matches_fd() -> None:
         tangent_offset=3.0,
     )
     _check_signal_mask(f, rel_tol=1e-3, name="curved_ridge")
+
+
+def test_smoothed_bar_default_call_renders_frame() -> None:
+    frame = smoothed_bar(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
+def test_smoothed_bar_batched_consistent_with_scalar() -> None:
+    bar_width = torch.tensor([18.0, 24.0, 30.0])
+    angle = torch.tensor([0.0, math.radians(20.0), math.radians(40.0)])
+    center_offset = torch.tensor([-3.0, 0.0, 3.0])
+    amplitude = torch.tensor([0.75, 1.0, 1.25])
+    edge_sigma = torch.tensor([2.0, 3.0, 4.0])
+
+    out = smoothed_bar(
+        80,
+        88,
+        bar_width=bar_width,
+        angle_rad=angle,
+        center_offset=center_offset,
+        amplitude=amplitude,
+        edge_sigma=edge_sigma,
+    )
+
+    assert out.I.shape == (3, 80, 88)
+    assert out.g.shape == (3, 2, 80, 88)
+    for i in range(3):
+        single = smoothed_bar(
+            80,
+            88,
+            bar_width=float(bar_width[i]),
+            angle_rad=float(angle[i]),
+            center_offset=float(center_offset[i]),
+            amplitude=float(amplitude[i]),
+            edge_sigma=float(edge_sigma[i]),
+        )
+        assert torch.allclose(out.I[i], single.I[0])
+        assert torch.allclose(out.gx[i], single.gx[0])
+        assert torch.allclose(out.gy[i], single.gy[0])
+
+
+def test_smoothed_bar_honors_requested_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = smoothed_bar(
+        20,
+        22,
+        bar_width=14.0,
+        angle_rad=math.radians(20.0),
+        edge_sigma=2.0,
+        amplitude=1.2,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_smoothed_bar_infers_tensor_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = smoothed_bar(
+        20,
+        22,
+        bar_width=torch.tensor([12.0, 16.0], device=device),
+        angle_rad=torch.tensor([0.0, math.radians(25.0)], device=device),
+        edge_sigma=2.0,
+        amplitude=1.2,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_curved_ridge_batched_consistent_with_scalar() -> None:
