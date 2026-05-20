@@ -475,12 +475,13 @@ def test_vessel_crossing_truth_shapes_and_dtypes() -> None:
     truth = vessel_crossing_truth(
         64,
         80,
-        sigma_a=3.0,
-        sigma_b=4.0,
-        theta_a_rad=math.radians(20.0),
-        theta_b_rad=math.radians(110.0),
+        branch_a_width_sigma=3.0,
+        branch_b_width_sigma=4.0,
+        branch_a_normal_angle_rad=math.radians(20.0),
+        branch_b_normal_angle_rad=math.radians(110.0),
         dtype=torch.float64,
     )
+
     assert set(truth) == {"centerline_mask", "branch_label", "junction_mask", "radius_map"}
     assert truth["centerline_mask"].shape == (64, 80)
     assert truth["centerline_mask"].dtype == torch.bool
@@ -496,15 +497,16 @@ def test_vessel_bifurcation_truth_shapes_and_dtypes() -> None:
     truth = vessel_bifurcation_truth(
         72,
         88,
-        sigma_trunk=3.0,
-        sigma_left=4.0,
-        sigma_right=5.0,
-        theta_trunk_rad=math.radians(90.0),
-        theta_left_rad=math.radians(35.0),
-        theta_right_rad=math.radians(145.0),
-        gate_sigma=6.0,
+        trunk_width_sigma=3.0,
+        left_width_sigma=4.0,
+        right_width_sigma=5.0,
+        trunk_tangent_angle_rad=math.radians(90.0),
+        left_tangent_angle_rad=math.radians(35.0),
+        right_tangent_angle_rad=math.radians(145.0),
+        branch_gate_sigma=6.0,
         dtype=torch.float64,
     )
+
     assert set(truth) == {"centerline_mask", "branch_label", "junction_mask", "radius_map"}
     assert truth["centerline_mask"].shape == (72, 88)
     assert truth["centerline_mask"].dtype == torch.bool
@@ -514,3 +516,127 @@ def test_vessel_bifurcation_truth_shapes_and_dtypes() -> None:
     assert truth["branch_label"].dtype == torch.long
     assert truth["radius_map"].shape == (72, 88)
     assert truth["radius_map"].dtype == torch.float64
+
+
+def test_vessel_crossing_truth_default_call_renders_maps() -> None:
+    truth = vessel_crossing_truth(24, 28)
+
+    assert truth["centerline_mask"].shape == (24, 28)
+    assert truth["branch_label"].shape == (24, 28)
+    assert truth["junction_mask"].shape == (24, 28)
+    assert truth["radius_map"].shape == (24, 28)
+
+
+def test_vessel_bifurcation_truth_default_call_renders_maps() -> None:
+    truth = vessel_bifurcation_truth(24, 28)
+
+    assert truth["centerline_mask"].shape == (24, 28)
+    assert truth["branch_label"].shape == (24, 28)
+    assert truth["junction_mask"].shape == (24, 28)
+    assert truth["radius_map"].shape == (24, 28)
+
+
+def test_vessel_crossing_truth_batched_consistent_with_scalar() -> None:
+    branch_a_width = torch.tensor([3.0, 4.0])
+    branch_b_width = torch.tensor([5.0, 6.0])
+    branch_a_angle = torch.tensor([math.radians(20.0), math.radians(30.0)])
+    branch_b_angle = torch.tensor([math.radians(110.0), math.radians(120.0)])
+    branch_a_offset = torch.tensor([-1.0, 1.0])
+    branch_b_offset = torch.tensor([2.0, -2.0])
+
+    truth = vessel_crossing_truth(
+        40,
+        44,
+        branch_a_width_sigma=branch_a_width,
+        branch_b_width_sigma=branch_b_width,
+        branch_a_normal_angle_rad=branch_a_angle,
+        branch_b_normal_angle_rad=branch_b_angle,
+        branch_a_center_offset=branch_a_offset,
+        branch_b_center_offset=branch_b_offset,
+    )
+
+    assert truth["centerline_mask"].shape == (2, 40, 44)
+    assert truth["branch_label"].shape == (2, 40, 44)
+    assert truth["junction_mask"].shape == (2, 40, 44)
+    assert truth["radius_map"].shape == (2, 40, 44)
+    for i in range(2):
+        scalar_truth = vessel_crossing_truth(
+            40,
+            44,
+            branch_a_width_sigma=float(branch_a_width[i]),
+            branch_b_width_sigma=float(branch_b_width[i]),
+            branch_a_normal_angle_rad=float(branch_a_angle[i]),
+            branch_b_normal_angle_rad=float(branch_b_angle[i]),
+            branch_a_center_offset=float(branch_a_offset[i]),
+            branch_b_center_offset=float(branch_b_offset[i]),
+        )
+        for key, value in scalar_truth.items():
+            assert torch.equal(truth[key][i], value)
+
+
+def test_vessel_bifurcation_truth_batched_consistent_with_scalar() -> None:
+    trunk_width = torch.tensor([3.0, 4.0])
+    left_width = torch.tensor([4.0, 5.0])
+    right_width = torch.tensor([5.0, 6.0])
+    trunk_angle = torch.tensor([math.radians(-90.0), math.radians(-80.0)])
+    left_angle = torch.tensor([math.radians(35.0), math.radians(45.0)])
+    right_angle = torch.tensor([math.radians(145.0), math.radians(135.0)])
+    center_x = torch.tensor([-1.0, 1.0])
+    center_y = torch.tensor([2.0, -2.0])
+    branch_gate_sigma = torch.tensor([4.0, 6.0])
+
+    truth = vessel_bifurcation_truth(
+        40,
+        44,
+        trunk_width_sigma=trunk_width,
+        left_width_sigma=left_width,
+        right_width_sigma=right_width,
+        trunk_tangent_angle_rad=trunk_angle,
+        left_tangent_angle_rad=left_angle,
+        right_tangent_angle_rad=right_angle,
+        center_x=center_x,
+        center_y=center_y,
+        branch_gate_sigma=branch_gate_sigma,
+    )
+
+    assert truth["centerline_mask"].shape == (2, 40, 44)
+    assert truth["branch_label"].shape == (2, 40, 44)
+    assert truth["junction_mask"].shape == (2, 40, 44)
+    assert truth["radius_map"].shape == (2, 40, 44)
+    for i in range(2):
+        scalar_truth = vessel_bifurcation_truth(
+            40,
+            44,
+            trunk_width_sigma=float(trunk_width[i]),
+            left_width_sigma=float(left_width[i]),
+            right_width_sigma=float(right_width[i]),
+            trunk_tangent_angle_rad=float(trunk_angle[i]),
+            left_tangent_angle_rad=float(left_angle[i]),
+            right_tangent_angle_rad=float(right_angle[i]),
+            center_x=float(center_x[i]),
+            center_y=float(center_y[i]),
+            branch_gate_sigma=float(branch_gate_sigma[i]),
+        )
+        for key, value in scalar_truth.items():
+            assert torch.equal(truth[key][i], value)
+
+
+def test_vessel_truth_helpers_infer_tensor_device() -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    crossing_truth = vessel_crossing_truth(
+        20,
+        24,
+        branch_a_width_sigma=torch.tensor([3.0, 4.0], device=device),
+        branch_b_width_sigma=5.0,
+    )
+    bifurcation_truth = vessel_bifurcation_truth(
+        20,
+        24,
+        trunk_width_sigma=torch.tensor([3.0, 4.0], device=device),
+        left_width_sigma=4.0,
+        right_width_sigma=5.0,
+    )
+
+    for truth in (crossing_truth, bifurcation_truth):
+        for value in truth.values():
+            assert value.device == device

@@ -25,7 +25,9 @@ from agfb_generators import (
     smoothed_step,
     smoothed_t_junction,
     vessel_bifurcation,
+    vessel_bifurcation_truth,
     vessel_crossing,
+    vessel_crossing_truth,
 )
 
 
@@ -107,8 +109,33 @@ from agfb_generators import (
             ),
         ),
         (
+            "vessel_crossing_truth_sigma",
+            lambda: vessel_crossing_truth(
+                16,
+                16,
+                branch_a_width_sigma=0.0,
+                branch_b_width_sigma=4.0,
+                branch_a_normal_angle_rad=0.0,
+                branch_b_normal_angle_rad=math.pi / 2.0,
+            ),
+        ),
+        (
             "vessel_bifurcation_gate_sigma",
             lambda: vessel_bifurcation(
+                16,
+                16,
+                trunk_width_sigma=4.0,
+                left_width_sigma=4.0,
+                right_width_sigma=4.0,
+                trunk_tangent_angle_rad=math.pi / 2.0,
+                left_tangent_angle_rad=math.pi / 4.0,
+                right_tangent_angle_rad=3.0 * math.pi / 4.0,
+                branch_gate_sigma=0.0,
+            ),
+        ),
+        (
+            "vessel_bifurcation_truth_gate_sigma",
+            lambda: vessel_bifurcation_truth(
                 16,
                 16,
                 trunk_width_sigma=4.0,
