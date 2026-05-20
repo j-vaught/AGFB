@@ -136,11 +136,11 @@ def _specs() -> list[GeneratorSpec]:
             render=lambda: mach_band(
                 HEIGHT,
                 WIDTH,
-                width_px=88.0,
-                theta_rad=0.0,
-                sigma_e=5.0,
-                band_strength=0.12,
-                band_sigma=5.0,
+                ramp_width=88.0,
+                angle_rad=0.0,
+                edge_sigma=5.0,
+                shoulder_amplitude=0.12,
+                shoulder_sigma=5.0,
             ),
         ),
         GeneratorSpec(

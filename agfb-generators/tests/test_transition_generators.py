@@ -125,11 +125,11 @@ def test_mach_band_gradient_matches_fd() -> None:
     f = mach_band(
         256,
         256,
-        width_px=48.0,
-        theta_rad=math.radians(25.0),
-        sigma_e=4.0,
-        band_strength=0.08,
-        band_sigma=5.0,
+        ramp_width=48.0,
+        angle_rad=math.radians(25.0),
+        edge_sigma=4.0,
+        shoulder_amplitude=0.08,
+        shoulder_sigma=5.0,
     )
     _check_signal_mask(f, rel_tol=2e-3, name="mach_band")
 
@@ -139,11 +139,11 @@ def test_mach_band_has_opposite_shoulders() -> None:
     f = mach_band(
         1,
         129,
-        width_px=32.0,
-        theta_rad=0.0,
-        sigma_e=2.0,
-        band_strength=0.1,
-        band_sigma=2.0,
+        ramp_width=32.0,
+        angle_rad=0.0,
+        edge_sigma=2.0,
+        shoulder_amplitude=0.1,
+        shoulder_sigma=2.0,
     )
     base = smoothed_ramp(1, 129, width_px=32.0, theta_rad=0.0, sigma_e=2.0)
     x = torch.arange(129, dtype=torch.float32) - 64.0
@@ -152,6 +152,50 @@ def test_mach_band_has_opposite_shoulders() -> None:
 
     assert f.I[0, 0, low_idx] < base.I[0, 0, low_idx]
     assert f.I[0, 0, high_idx] > base.I[0, 0, high_idx]
+
+
+def test_mach_band_legacy_names_match_preferred_names() -> None:
+    """Verify the old Mach-band keyword aliases preserve existing callers."""
+    preferred = mach_band(
+        64,
+        68,
+        ramp_width=24.0,
+        angle_rad=math.radians(15.0),
+        center_offset=-2.0,
+        amplitude=1.2,
+        edge_sigma=3.0,
+        shoulder_amplitude=0.09,
+        shoulder_sigma=4.0,
+    )
+    legacy = mach_band(
+        64,
+        68,
+        width_px=24.0,
+        theta_rad=math.radians(15.0),
+        x0=-2.0,
+        contrast=1.2,
+        sigma_e=3.0,
+        band_strength=0.09,
+        band_sigma=4.0,
+    )
+
+    assert torch.allclose(preferred.I, legacy.I)
+    assert torch.allclose(preferred.g, legacy.g)
+
+
+def test_mach_band_infers_tensor_device() -> None:
+    """Verify tensor inputs keep Mach-band output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = mach_band(
+        20,
+        24,
+        ramp_width=torch.tensor([12.0, 16.0], device=device),
+        angle_rad=torch.tensor([0.0, 0.25], device=device),
+        edge_sigma=2.0,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_smoothed_ramp_batched_consistent_with_scalar() -> None:
