@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from agfb_generators.base import Frame, Numeric, infer_device, pack
+from agfb_generators.base import Frame, Numeric, infer_device, pack, validate_positive
 from agfb_generators.smoothed_step import smoothed_step
 
 
@@ -43,6 +43,8 @@ def smoothed_bar(
     gradients into one `Frame`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_positive("bar_width", bar_width)
+    validate_positive("edge_sigma", edge_sigma)
     device = infer_device(device, bar_width, angle_rad, center_offset, amplitude, edge_sigma)
     half_width = bar_width / 2.0 if isinstance(bar_width, torch.Tensor) else float(bar_width) / 2.0
 

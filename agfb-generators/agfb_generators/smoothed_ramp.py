@@ -12,7 +12,9 @@ from agfb_generators.base import (
     gauss_Phi,
     gauss_phi,
     infer_batch_size,
+    infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -34,7 +36,9 @@ def smoothed_ramp(
     Gaussian edge-spread kernel. The gradient magnitude is the corresponding
     difference of two Gaussian cumulative distribution functions.
     """
-    device = device or torch.device("cpu")
+    validate_positive("width_px", width_px)
+    validate_positive("sigma_e", sigma_e)
+    device = infer_device(device, width_px, theta_rad, x0, contrast, sigma_e)
     B = infer_batch_size(width_px, theta_rad, x0, contrast, sigma_e)
     xx, yy = coord_grid(height, width, device, dtype)
 

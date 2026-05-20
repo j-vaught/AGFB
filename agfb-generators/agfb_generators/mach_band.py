@@ -14,6 +14,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -58,6 +59,9 @@ def mach_band(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_positive("ramp_width", ramp_width)
+    validate_positive("edge_sigma", edge_sigma)
+    validate_positive("shoulder_sigma", shoulder_sigma)
     device = infer_device(
         device,
         ramp_width,

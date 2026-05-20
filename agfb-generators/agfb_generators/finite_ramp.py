@@ -12,6 +12,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -47,6 +48,7 @@ def finite_ramp(
     `device` is omitted and a tensor parameter is passed, the render stays on
     that tensor's device.
     """
+    validate_positive("ramp_width", ramp_width)
     device = infer_device(device, ramp_width, angle_rad, center_offset, amplitude)
     batch_size = infer_batch_size(ramp_width, angle_rad, center_offset, amplitude)
     xx, yy = coord_grid(height, width, device, dtype)

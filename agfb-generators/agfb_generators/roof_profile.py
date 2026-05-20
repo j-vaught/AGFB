@@ -12,6 +12,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -50,6 +51,7 @@ def roof_profile(
     support edges. If `device` is omitted and a tensor parameter is passed, the
     render stays on that tensor's device.
     """
+    validate_positive("roof_width", roof_width)
     device = infer_device(device, roof_width, angle_rad, center_offset, amplitude)
     batch_size = infer_batch_size(roof_width, angle_rad, center_offset, amplitude)
     xx, yy = coord_grid(height, width, device, dtype)

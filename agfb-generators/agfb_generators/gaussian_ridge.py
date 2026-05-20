@@ -12,6 +12,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -45,6 +46,7 @@ def gaussian_ridge(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_positive("width_sigma", width_sigma)
     device = infer_device(device, width_sigma, angle_rad, center_offset, amplitude)
     batch_size = infer_batch_size(width_sigma, angle_rad, center_offset, amplitude)
     xx, yy = coord_grid(height, width, device, dtype)

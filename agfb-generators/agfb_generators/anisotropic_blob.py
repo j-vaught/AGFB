@@ -12,6 +12,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -53,6 +54,8 @@ def anisotropic_blob(
     created on the resolved device, so CUDA inputs run the same vectorized path
     on the GPU.
     """
+    validate_positive("length_sigma", length_sigma)
+    validate_positive("width_sigma", width_sigma)
     device = infer_device(
         device,
         length_sigma,

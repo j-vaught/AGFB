@@ -12,6 +12,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -43,6 +44,7 @@ def gaussian_blob(
     gradients with respect to image `x` and `y`. If `device` is omitted and a
     tensor parameter is passed, the render stays on that tensor's device.
     """
+    validate_positive("scale_sigma", scale_sigma)
     device = infer_device(device, scale_sigma, center_x, center_y, amplitude)
     batch_size = infer_batch_size(scale_sigma, center_x, center_y, amplitude)
     xx, yy = coord_grid(height, width, device, dtype)

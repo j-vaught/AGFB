@@ -12,6 +12,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -48,6 +49,8 @@ def asymmetric_ridge(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_positive("negative_sigma", negative_sigma)
+    validate_positive("positive_sigma", positive_sigma)
     device = infer_device(
         device,
         negative_sigma,

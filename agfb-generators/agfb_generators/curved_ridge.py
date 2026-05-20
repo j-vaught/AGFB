@@ -12,6 +12,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -50,6 +51,7 @@ def curved_ridge(
     rule. If `device` is omitted and a tensor parameter is passed, the render
     stays on that tensor's device.
     """
+    validate_positive("width_sigma", width_sigma)
     device = infer_device(
         device,
         width_sigma,

@@ -13,6 +13,7 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     pack,
+    validate_positive,
 )
 
 
@@ -32,6 +33,8 @@ def vessel_crossing(
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
     """Render two independent straight Gaussian ridges and sum their fields."""
+    validate_positive("sigma_a", sigma_a)
+    validate_positive("sigma_b", sigma_b)
     device = device or torch.device("cpu")
     B = infer_batch_size(
         sigma_a,
@@ -85,6 +88,10 @@ def vessel_bifurcation(
     and right gates keep the positive tangent side so branches point outward.
     Product-rule terms from both the ridge and gate are included in `g`.
     """
+    validate_positive("sigma_trunk", sigma_trunk)
+    validate_positive("sigma_left", sigma_left)
+    validate_positive("sigma_right", sigma_right)
+    validate_positive("gate_sigma", gate_sigma)
     device = device or torch.device("cpu")
     B = infer_batch_size(
         sigma_trunk,

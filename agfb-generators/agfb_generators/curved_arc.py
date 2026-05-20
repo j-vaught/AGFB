@@ -14,6 +14,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -50,6 +51,8 @@ def curved_arc(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_positive("radius", radius)
+    validate_positive("edge_sigma", edge_sigma)
     device = infer_device(device, radius, center_x, center_y, amplitude, edge_sigma)
     batch_size = infer_batch_size(radius, center_x, center_y, amplitude, edge_sigma)
     xx, yy = coord_grid(height, width, device, dtype)

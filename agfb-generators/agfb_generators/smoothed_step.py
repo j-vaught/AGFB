@@ -12,7 +12,9 @@ from agfb_generators.base import (
     gauss_Phi,
     gauss_phi,
     infer_batch_size,
+    infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -34,7 +36,8 @@ def smoothed_step(
     `I = c * Phi((p . n_hat - x0) / sigma_e)` and returns the intensity plus
     the analytic gradient aligned with `n_hat = (cos t, sin t)`.
     """
-    device = device or torch.device("cpu")
+    validate_positive("sigma_e", sigma_e)
+    device = infer_device(device, theta_rad, x0, contrast, sigma_e)
     B = infer_batch_size(theta_rad, x0, contrast, sigma_e)
     xx, yy = coord_grid(height, width, device, dtype)
 

@@ -108,6 +108,22 @@ def infer_device(device: torch.device | None, *params: Numeric) -> torch.device:
     return torch.device("cpu")
 
 
+def validate_positive(name: str, value: Numeric) -> None:
+    """Reject nonpositive scale parameters before analytic formulas divide by them."""
+    if isinstance(value, torch.Tensor):
+        finite = (
+            torch.isfinite(value) if value.is_floating_point() else torch.ones_like(value).bool()
+        )
+        valid = finite & (value > 0)
+        if value.numel() == 0 or not bool(torch.all(valid).item()):
+            raise ValueError(f"{name} must contain only finite values greater than zero")
+        return
+
+    value_float = float(value)
+    if not math.isfinite(value_float) or value_float <= 0.0:
+        raise ValueError(f"{name} must be a finite value greater than zero")
+
+
 @lru_cache(maxsize=32)
 def _coord_grid_cached(
     height: int,

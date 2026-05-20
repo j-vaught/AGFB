@@ -7,7 +7,7 @@ import math
 import torch
 
 from agfb_generators._junction import junction_frame
-from agfb_generators.base import Frame, Numeric, infer_device
+from agfb_generators.base import Frame, Numeric, infer_device, validate_positive
 
 
 def smoothed_l_junction(
@@ -42,6 +42,8 @@ def smoothed_l_junction(
     omitted and a tensor parameter is passed, the render stays on that tensor's
     device.
     """
+    validate_positive("arm_width", arm_width)
+    validate_positive("edge_sigma", edge_sigma)
     device = infer_device(
         device,
         arm_width,

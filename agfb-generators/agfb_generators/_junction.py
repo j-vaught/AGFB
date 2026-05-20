@@ -15,6 +15,7 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     pack,
+    validate_positive,
 )
 
 
@@ -40,6 +41,8 @@ def junction_frame(
     distance to the union of those stroked rays, which avoids the divots and
     ad hoc endpoint caps produced by multiplying separate half-bar masks.
     """
+    validate_positive("arm_width_px", arm_width_px)
+    validate_positive("sigma_e", sigma_e)
     device = device or torch.device("cpu")
     batch_size = infer_batch_size(*angles_rad, arm_width_px, x0, y0, contrast, sigma_e)
     xx, yy = coord_grid(height, width, device, dtype)

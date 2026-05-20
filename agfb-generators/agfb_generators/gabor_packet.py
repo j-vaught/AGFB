@@ -14,6 +14,7 @@ from agfb_generators.base import (
     infer_batch_size,
     infer_device,
     pack,
+    validate_positive,
 )
 
 
@@ -53,6 +54,8 @@ def gabor_packet(
     gradients with respect to image `x` and `y`. If `device` is omitted and a
     tensor parameter is passed, the render stays on that tensor's device.
     """
+    validate_positive("envelope_length_sigma", envelope_length_sigma)
+    validate_positive("envelope_width_sigma", envelope_width_sigma)
     device = infer_device(
         device,
         carrier_frequency,
