@@ -4,6 +4,8 @@ import torch
 
 from agfb_filters import (
     AutoRunner,
+    BoundaryCondition,
+    BoundaryMode,
     ExecutionPath,
     central_difference_definition,
     cpgf_definition,
@@ -28,6 +30,15 @@ def _step_image() -> tuple[torch.Tensor, int]:
     return image, edge_column
 
 
+def _boundary_conditions() -> tuple[BoundaryCondition, ...]:
+    return (
+        BoundaryCondition(BoundaryMode.REFLECT),
+        BoundaryCondition(BoundaryMode.REPLICATE),
+        BoundaryCondition(BoundaryMode.CONSTANT),
+        BoundaryCondition(BoundaryMode.CIRCULAR),
+    )
+
+
 def _definitions():
     return [
         central_difference_definition(),
@@ -49,7 +60,12 @@ def test_runner_detects_vertical_step_edge_on_160_by_106_image() -> None:
     image, edge_column = _step_image()
 
     for definition in _definitions():
-        gradient_x, gradient_y = run_filter(definition, image, path=ExecutionPath.SPATIAL_DENSE)
+        gradient_x, gradient_y = run_filter(
+            definition,
+            image,
+            path=ExecutionPath.SPATIAL_DENSE,
+            boundary=definition.default_boundary,
+        )
         horizontal_response = gradient_x.abs().mean(dim=(0, 1))
         peak_column = int(horizontal_response.argmax())
 
@@ -66,21 +82,43 @@ def test_valid_paths_match_spatial_dense_on_random_images() -> None:
     image = torch.randn(1, 18, 19)
     auto_runner = AutoRunner()
 
-    for definition in _definitions():
-        reference_x, reference_y = run_filter(definition, image, path=ExecutionPath.SPATIAL_DENSE)
-        for path in auto_runner.valid_paths(definition):
-            gradient_x, gradient_y = run_filter(definition, image, path=path)
-            assert torch.allclose(reference_x, gradient_x, atol=1e-4)
-            assert torch.allclose(reference_y, gradient_y, atol=1e-4)
+    for boundary in _boundary_conditions():
+        for definition in _definitions():
+            reference_x, reference_y = run_filter(
+                definition,
+                image,
+                path=ExecutionPath.SPATIAL_DENSE,
+                boundary=boundary,
+            )
+            for path in auto_runner.valid_paths(definition):
+                gradient_x, gradient_y = run_filter(
+                    definition,
+                    image,
+                    path=path,
+                    boundary=boundary,
+                )
+                assert torch.allclose(reference_x, gradient_x, atol=1e-4)
+                assert torch.allclose(reference_y, gradient_y, atol=1e-4)
 
 
 def test_valid_paths_match_spatial_dense_on_step_image() -> None:
     image, _ = _step_image()
     auto_runner = AutoRunner()
 
-    for definition in _definitions():
-        reference_x, reference_y = run_filter(definition, image, path=ExecutionPath.SPATIAL_DENSE)
-        for path in auto_runner.valid_paths(definition):
-            gradient_x, gradient_y = run_filter(definition, image, path=path)
-            assert torch.allclose(reference_x, gradient_x, atol=1e-4)
-            assert torch.allclose(reference_y, gradient_y, atol=1e-4)
+    for boundary in _boundary_conditions():
+        for definition in _definitions():
+            reference_x, reference_y = run_filter(
+                definition,
+                image,
+                path=ExecutionPath.SPATIAL_DENSE,
+                boundary=boundary,
+            )
+            for path in auto_runner.valid_paths(definition):
+                gradient_x, gradient_y = run_filter(
+                    definition,
+                    image,
+                    path=path,
+                    boundary=boundary,
+                )
+                assert torch.allclose(reference_x, gradient_x, atol=1e-4)
+                assert torch.allclose(reference_y, gradient_y, atol=1e-4)

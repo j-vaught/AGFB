@@ -20,7 +20,7 @@ import torch
 
 from agfb_filters.definitions import GradientFilterDefinition
 from agfb_filters.derivative_of_gaussian import derivative_of_gaussian_definition
-from agfb_filters.execution import ExecutionPath, ExecutionPlan
+from agfb_filters.execution import BoundaryCondition, ExecutionPath, ExecutionPlan
 from agfb_filters.runner import run_filter
 
 
@@ -31,7 +31,7 @@ def freeman_adelson_g1_definition(
     derivative_definition = derivative_of_gaussian_definition(sigma=sigma, truncate=truncate)
     return GradientFilterDefinition(
         name="freeman_adelson_g1",
-        padding_mode=derivative_definition.padding_mode,
+        default_boundary=derivative_definition.default_boundary,
         smooth_kernel_1d=derivative_definition.smooth_kernel_1d,
         derivative_kernel_1d=derivative_definition.derivative_kernel_1d,
         support=derivative_definition.support,
@@ -50,5 +50,6 @@ class FreemanAdelsonG1:
         image: torch.Tensor,
         *,
         path: ExecutionPath | ExecutionPlan | str,
+        boundary: BoundaryCondition | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        return run_filter(self.definition, image, path=path)
+        return run_filter(self.definition, image, path=path, boundary=boundary)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 
 from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import ExecutionPath, ExecutionPlan
+from agfb_filters.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
 from agfb_filters.polynomial import build_polynomial_gradient_kernels
 from agfb_filters.runner import run_filter
 
@@ -32,7 +32,7 @@ def savitzky_golay_definition(
     kernel_x, kernel_y = savitzky_golay_kernels(radius=radius, degree=degree, device=device)
     return GradientFilterDefinition(
         name="savitzky_golay",
-        padding_mode="reflect",
+        default_boundary=BoundaryCondition(BoundaryMode.REFLECT),
         kernel_x=kernel_x,
         kernel_y=kernel_y,
         support="square",
@@ -54,5 +54,6 @@ class SavitzkyGolay:
         image: torch.Tensor,
         *,
         path: ExecutionPath | ExecutionPlan | str,
+        boundary: BoundaryCondition | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        return run_filter(self.definition, image, path=path)
+        return run_filter(self.definition, image, path=path, boundary=boundary)

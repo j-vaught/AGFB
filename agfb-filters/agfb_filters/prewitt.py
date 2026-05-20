@@ -5,14 +5,14 @@ from __future__ import annotations
 import torch
 
 from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import ExecutionPath, ExecutionPlan
+from agfb_filters.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
 from agfb_filters.runner import run_filter
 
 _SMOOTH_KERNEL = torch.tensor([1.0, 1.0, 1.0]) / 3.0
 _DERIVATIVE_KERNEL = torch.tensor([-1.0, 0.0, 1.0]) / 2.0
 _DEFINITION = GradientFilterDefinition(
     name="prewitt_3",
-    padding_mode="replicate",
+    default_boundary=BoundaryCondition(BoundaryMode.REPLICATE),
     smooth_kernel_1d=_SMOOTH_KERNEL,
     derivative_kernel_1d=_DERIVATIVE_KERNEL,
     support="separable",
@@ -28,5 +28,6 @@ def prewitt_3(
     image: torch.Tensor,
     *,
     path: ExecutionPath | ExecutionPlan | str,
+    boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    return run_filter(_DEFINITION, image, path=path)
+    return run_filter(_DEFINITION, image, path=path, boundary=boundary)

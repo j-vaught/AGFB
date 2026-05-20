@@ -14,7 +14,7 @@ import math
 import torch
 
 from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import ExecutionPath, ExecutionPlan
+from agfb_filters.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
 from agfb_filters.runner import run_filter
 
 
@@ -32,7 +32,7 @@ def derivative_of_gaussian_definition(
     derivative_kernel = derivative_kernel - derivative_kernel.mean()
     return GradientFilterDefinition(
         name="derivative_of_gaussian",
-        padding_mode="replicate",
+        default_boundary=BoundaryCondition(BoundaryMode.REPLICATE),
         smooth_kernel_1d=gaussian_kernel.to(torch.float32),
         derivative_kernel_1d=derivative_kernel.to(torch.float32),
         support="separable",
@@ -54,5 +54,6 @@ class DerivativeOfGaussian:
         image: torch.Tensor,
         *,
         path: ExecutionPath | ExecutionPlan | str,
+        boundary: BoundaryCondition | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        return run_filter(self.definition, image, path=path)
+        return run_filter(self.definition, image, path=path, boundary=boundary)

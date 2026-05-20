@@ -6,9 +6,15 @@ import torch
 import torch.fft as torch_fft
 import torch.nn.functional as F
 
-from agfb_filters.base import check_input, separable_gradient
+from agfb_filters.base import check_input, pad_with_boundary, separable_gradient
 from agfb_filters.definitions import GradientFilterDefinition
-from agfb_filters.execution import ExecutionPath, ExecutionPlan, InputSignature, concrete_path
+from agfb_filters.execution import (
+    BoundaryCondition,
+    ExecutionPath,
+    ExecutionPlan,
+    InputSignature,
+    concrete_path,
+)
 
 
 def run_filter(
@@ -16,15 +22,18 @@ def run_filter(
     image: torch.Tensor,
     *,
     path: ExecutionPath | ExecutionPlan | str,
+    boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Run a filter definition against an image batch with one explicit path."""
     image = check_input(image)
-    return _DEFAULT_RUNNER.run(definition, image, path=path)
+    return _DEFAULT_RUNNER.run(definition, image, path=path, boundary=boundary)
 
 
 class _FilterRunner:
     def __init__(self) -> None:
-        self._fft_kernel_cache: dict[tuple[str, str, tuple[int, int], str, str], torch.Tensor] = {}
+        self._fft_kernel_cache: dict[
+            tuple[str, str, tuple[int, int], str, float, str, str], torch.Tensor
+        ] = {}
 
     def run(
         self,
@@ -32,8 +41,9 @@ class _FilterRunner:
         image: torch.Tensor,
         *,
         path: ExecutionPath | ExecutionPlan | str,
+        boundary: BoundaryCondition | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        selected_path = _resolve_path(definition, image, path)
+        selected_path, selected_boundary = _resolve_execution(definition, image, path, boundary)
 
         if selected_path == ExecutionPath.SEPARABLE:
             _require_separable(definition, selected_path)
@@ -42,7 +52,7 @@ class _FilterRunner:
                 image,
                 smooth_kernel_1d=smooth_kernel.to(device=image.device, dtype=image.dtype),
                 derivative_kernel_1d=derivative_kernel.to(device=image.device, dtype=image.dtype),
-                pad_mode=definition.padding_mode,
+                boundary=selected_boundary,
             )
 
         dense_kernels = _dense_kernels_for_image(definition, image)
@@ -52,14 +62,14 @@ class _FilterRunner:
             return _spatial_cross_correlation(
                 image,
                 dense_kernels,
-                padding_mode=definition.padding_mode,
+                boundary=selected_boundary,
                 spatial_padding=spatial_padding,
             )
         if selected_path == ExecutionPath.FFT:
             return self._fft_cross_correlation(
                 image,
                 dense_kernels,
-                padding_mode=definition.padding_mode,
+                boundary=selected_boundary,
                 spatial_padding=spatial_padding,
                 filter_fingerprint=definition.fingerprint(),
             )
@@ -67,14 +77,14 @@ class _FilterRunner:
             return _offset_cross_correlation(
                 image,
                 dense_kernels,
-                padding_mode=definition.padding_mode,
+                boundary=selected_boundary,
                 spatial_padding=spatial_padding,
             )
         if selected_path == ExecutionPath.ANTIPODAL_PAIRS:
             return _antipodal_cross_correlation(
                 image,
                 dense_kernels,
-                padding_mode=definition.padding_mode,
+                boundary=selected_boundary,
                 spatial_padding=spatial_padding,
             )
         if selected_path == ExecutionPath.STENCIL:
@@ -82,7 +92,7 @@ class _FilterRunner:
             return _offset_cross_correlation(
                 image,
                 dense_kernels,
-                padding_mode=definition.padding_mode,
+                boundary=selected_boundary,
                 spatial_padding=spatial_padding,
             )
         raise ValueError(f"unsupported execution path {selected_path}")
@@ -92,14 +102,14 @@ class _FilterRunner:
         image: torch.Tensor,
         kernels: tuple[torch.Tensor, torch.Tensor],
         *,
-        padding_mode: str,
+        boundary: BoundaryCondition,
         spatial_padding: tuple[int, int, int, int],
         filter_fingerprint: str,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         kernel_x, kernel_y = kernels
         kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
         batch, image_height, image_width = image.shape
-        padded_image = F.pad(image.unsqueeze(1), spatial_padding, mode=padding_mode).squeeze(1)
+        padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
         padded_height = int(padded_image.shape[-2])
         padded_width = int(padded_image.shape[-1])
         _require_output_shape(
@@ -119,6 +129,7 @@ class _FilterRunner:
                 label=label,
                 kernel=kernel,
                 fft_shape=fft_shape,
+                boundary=boundary,
                 filter_fingerprint=filter_fingerprint,
             )
             full_output = torch_fft.irfft2(image_spectrum * kernel_spectrum, s=fft_shape)
@@ -137,12 +148,15 @@ class _FilterRunner:
         label: str,
         kernel: torch.Tensor,
         fft_shape: tuple[int, int],
+        boundary: BoundaryCondition,
         filter_fingerprint: str,
     ) -> torch.Tensor:
         cache_key = (
             filter_fingerprint,
             label,
             fft_shape,
+            boundary.mode.value,
+            boundary.value,
             str(kernel.dtype),
             str(kernel.device),
         )
@@ -158,11 +172,13 @@ class _FilterRunner:
         return spectrum
 
 
-def _resolve_path(
+def _resolve_execution(
     definition: GradientFilterDefinition,
     image: torch.Tensor,
     path: ExecutionPath | ExecutionPlan | str,
-) -> ExecutionPath:
+    boundary: BoundaryCondition | None,
+) -> tuple[ExecutionPath, BoundaryCondition]:
+    selected_boundary = _resolve_boundary(path, boundary)
     if isinstance(path, ExecutionPlan):
         filter_fingerprint = definition.fingerprint()
         if path.filter_fingerprint != filter_fingerprint:
@@ -178,7 +194,22 @@ def _resolve_path(
         _require_separable(definition, selected_path)
     else:
         _require_dense(definition, selected_path)
-    return selected_path
+    return selected_path, selected_boundary
+
+
+def _resolve_boundary(
+    path: ExecutionPath | ExecutionPlan | str,
+    boundary: BoundaryCondition | None,
+) -> BoundaryCondition:
+    if boundary is not None and not isinstance(boundary, BoundaryCondition):
+        raise ValueError("boundary must be a BoundaryCondition")
+    if isinstance(path, ExecutionPlan):
+        if boundary is not None and boundary != path.boundary:
+            raise ValueError("execution plan boundary does not match explicit boundary")
+        return path.boundary
+    if boundary is None:
+        raise ValueError("boundary must be provided unless path is an ExecutionPlan")
+    return boundary
 
 
 def _require_separable(definition: GradientFilterDefinition, path: ExecutionPath) -> None:
@@ -231,13 +262,13 @@ def _spatial_cross_correlation(
     image: torch.Tensor,
     kernels: tuple[torch.Tensor, torch.Tensor],
     *,
-    padding_mode: str,
+    boundary: BoundaryCondition,
     spatial_padding: tuple[int, int, int, int],
 ) -> tuple[torch.Tensor, torch.Tensor]:
     kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
     batch, image_height, image_width = image.shape
     image_channels = image.unsqueeze(1)
-    padded_image = F.pad(image_channels, spatial_padding, mode=padding_mode)
+    padded_image = pad_with_boundary(image_channels, spatial_padding, boundary)
     _require_output_shape(
         image_height=image_height,
         image_width=image_width,
@@ -255,14 +286,14 @@ def _offset_cross_correlation(
     image: torch.Tensor,
     kernels: tuple[torch.Tensor, torch.Tensor],
     *,
-    padding_mode: str,
+    boundary: BoundaryCondition,
     spatial_padding: tuple[int, int, int, int],
 ) -> tuple[torch.Tensor, torch.Tensor]:
     kernel_x, kernel_y = kernels
     kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
     image_height = int(image.shape[-2])
     image_width = int(image.shape[-1])
-    padded_image = F.pad(image.unsqueeze(1), spatial_padding, mode=padding_mode).squeeze(1)
+    padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
     _require_output_shape(
         image_height=image_height,
         image_width=image_width,
@@ -292,7 +323,7 @@ def _antipodal_cross_correlation(
     image: torch.Tensor,
     kernels: tuple[torch.Tensor, torch.Tensor],
     *,
-    padding_mode: str,
+    boundary: BoundaryCondition,
     spatial_padding: tuple[int, int, int, int],
 ) -> tuple[torch.Tensor, torch.Tensor]:
     kernel_x, kernel_y = kernels
@@ -307,7 +338,7 @@ def _antipodal_cross_correlation(
     pairs_y = _antipodal_pairs(kernel_y)
     image_height = int(image.shape[-2])
     image_width = int(image.shape[-1])
-    padded_image = F.pad(image.unsqueeze(1), spatial_padding, mode=padding_mode).squeeze(1)
+    padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
     _require_output_shape(
         image_height=image_height,
         image_width=image_width,

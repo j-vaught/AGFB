@@ -8,9 +8,6 @@ Output convention.
     `(batch, height, width)`.
     `gradient_x` is the horizontal gradient along image columns.
     `gradient_y` is the vertical gradient along image rows.
-
-Padding defaults to `replicate`. Individual filter definitions may override
-that when a different boundary convention is part of the filter.
 """
 
 from __future__ import annotations
@@ -18,6 +15,8 @@ from __future__ import annotations
 import torch
 import torch.fft as torch_fft
 import torch.nn.functional as F
+
+from agfb_filters.execution import BoundaryCondition, BoundaryMode
 
 
 def check_input(image: torch.Tensor) -> torch.Tensor:
@@ -31,13 +30,34 @@ def check_input(image: torch.Tensor) -> torch.Tensor:
     return image.contiguous()
 
 
+def pad_with_boundary(
+    tensor: torch.Tensor,
+    padding: tuple[int, int, int, int],
+    boundary: BoundaryCondition,
+) -> torch.Tensor:
+    """Pad a 4-D image tensor using the runner boundary contract."""
+    if tensor.ndim != 4:
+        raise ValueError(f"boundary padding expects a 4-D tensor, got {tensor.ndim} dimensions")
+    if len(padding) != 4:
+        raise ValueError("padding must be (left, right, top, bottom)")
+    if any(amount < 0 for amount in padding):
+        raise ValueError(f"padding amounts must be nonnegative, got {padding}")
+
+    boundary = _require_boundary_condition(boundary)
+    if boundary.mode == BoundaryMode.REFLECT:
+        _require_reflect_padding_supported(tensor, padding)
+    if boundary.mode == BoundaryMode.CONSTANT:
+        return F.pad(tensor, padding, mode=boundary.mode.value, value=boundary.value)
+    return F.pad(tensor, padding, mode=boundary.mode.value)
+
+
 def directional_derivative(
     image: torch.Tensor,
     *,
     smooth_kernel_1d: torch.Tensor,
     derivative_kernel_1d: torch.Tensor,
     axis: int,
-    pad_mode: str = "replicate",
+    boundary: BoundaryCondition,
 ) -> torch.Tensor:
     """Apply a separable directional derivative to one image batch.
 
@@ -56,19 +76,19 @@ def directional_derivative(
         # smooth along rows (y), differentiate along cols (x)
         smooth_kernel = smooth_kernel_1d.view(1, 1, -1, 1)
         derivative_kernel = derivative_kernel_1d.view(1, 1, 1, -1)
-        image_channels = F.pad(
+        image_channels = pad_with_boundary(
             image_channels,
             (derivative_radius, derivative_radius, smooth_radius, smooth_radius),
-            mode=pad_mode,
+            boundary,
         )
     else:
         # smooth along cols (x), differentiate along rows (y)
         smooth_kernel = smooth_kernel_1d.view(1, 1, 1, -1)
         derivative_kernel = derivative_kernel_1d.view(1, 1, -1, 1)
-        image_channels = F.pad(
+        image_channels = pad_with_boundary(
             image_channels,
             (smooth_radius, smooth_radius, derivative_radius, derivative_radius),
-            mode=pad_mode,
+            boundary,
         )
     smoothed_image = F.conv2d(image_channels, smooth_kernel)
     return F.conv2d(smoothed_image, derivative_kernel).squeeze(1)
@@ -79,7 +99,7 @@ def separable_gradient(
     *,
     smooth_kernel_1d: torch.Tensor,
     derivative_kernel_1d: torch.Tensor,
-    pad_mode: str = "replicate",
+    boundary: BoundaryCondition,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Return `(gradient_x, gradient_y)` with smooth-first ordering."""
     gradient_x = directional_derivative(
@@ -87,14 +107,14 @@ def separable_gradient(
         smooth_kernel_1d=smooth_kernel_1d,
         derivative_kernel_1d=derivative_kernel_1d,
         axis=1,
-        pad_mode=pad_mode,
+        boundary=boundary,
     )
     gradient_y = directional_derivative(
         image,
         smooth_kernel_1d=smooth_kernel_1d,
         derivative_kernel_1d=derivative_kernel_1d,
         axis=0,
-        pad_mode=pad_mode,
+        boundary=boundary,
     )
     return gradient_x, gradient_y
 
@@ -103,7 +123,7 @@ def dense_convolution_2d(
     image: torch.Tensor,
     kernel: torch.Tensor,
     *,
-    pad_mode: str = "replicate",
+    boundary: BoundaryCondition,
 ) -> torch.Tensor:
     """Apply an odd-sized dense 2-D kernel with `F.conv2d`."""
     kernel_height, kernel_width = kernel.shape
@@ -112,10 +132,10 @@ def dense_convolution_2d(
     radius_height = kernel_height // 2
     radius_width = kernel_width // 2
     image_channels = image.unsqueeze(1)
-    padded_image = F.pad(
+    padded_image = pad_with_boundary(
         image_channels,
         (radius_width, radius_width, radius_height, radius_height),
-        mode=pad_mode,
+        boundary,
     )
     convolution_kernel = kernel.view(1, 1, kernel_height, kernel_width)
     return F.conv2d(padded_image, convolution_kernel).squeeze(1)
@@ -125,7 +145,7 @@ def fft_cross_correlation(
     image: torch.Tensor,
     kernels: tuple[torch.Tensor, torch.Tensor],
     *,
-    pad_mode: str = "replicate",
+    boundary: BoundaryCondition,
     spatial_padding: tuple[int, int, int, int] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Cross-correlate `image` with horizontal and vertical kernels via FFT.
@@ -148,7 +168,7 @@ def fft_cross_correlation(
         )
 
     _, image_height, image_width = image.shape
-    padded_image = F.pad(image.unsqueeze(1), spatial_padding, mode=pad_mode).squeeze(1)
+    padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
     padded_height = int(padded_image.shape[-2])
     padded_width = int(padded_image.shape[-1])
     output_height = padded_height - kernel_height + 1
@@ -198,3 +218,24 @@ def linear_convolution_1d(signal: torch.Tensor, kernel: torch.Tensor) -> torch.T
         padding=kernel.shape[0] - 1,
     )
     return convolved.view(-1)
+
+
+def _require_boundary_condition(boundary: BoundaryCondition) -> BoundaryCondition:
+    if not isinstance(boundary, BoundaryCondition):
+        raise ValueError("boundary must be a BoundaryCondition")
+    return boundary
+
+
+def _require_reflect_padding_supported(
+    tensor: torch.Tensor,
+    padding: tuple[int, int, int, int],
+) -> None:
+    left, right, top, bottom = padding
+    height = int(tensor.shape[-2])
+    width = int(tensor.shape[-1])
+    if left >= width or right >= width or top >= height or bottom >= height:
+        raise ValueError(
+            "reflect boundary requires left/right padding to be smaller than input width "
+            "and top/bottom padding to be smaller than input height, "
+            f"got padding {padding} for input {height}x{width}"
+        )

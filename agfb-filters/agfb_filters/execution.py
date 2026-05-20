@@ -22,6 +22,54 @@ class ExecutionPath(StrEnum):
     STENCIL = "stencil"
 
 
+class BoundaryMode(StrEnum):
+    """Boundary modes supported by the runner."""
+
+    REFLECT = "reflect"
+    REPLICATE = "replicate"
+    CONSTANT = "constant"
+    CIRCULAR = "circular"
+
+
+@dataclass(frozen=True)
+class BoundaryCondition:
+    """Padding boundary condition for same-shape filter execution."""
+
+    mode: BoundaryMode
+    value: float = 0.0
+
+    def __post_init__(self) -> None:
+        try:
+            mode = (
+                self.mode if isinstance(self.mode, BoundaryMode) else BoundaryMode(str(self.mode))
+            )
+        except ValueError as error:
+            supported = ", ".join(mode.value for mode in BoundaryMode)
+            raise ValueError(
+                f"unsupported boundary mode {self.mode!r}; supported modes are {supported}"
+            ) from error
+
+        value = float(self.value)
+        if mode != BoundaryMode.CONSTANT and value != 0.0:
+            raise ValueError("boundary value is only supported for constant mode")
+
+        object.__setattr__(self, "mode", mode)
+        object.__setattr__(self, "value", value)
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode.value,
+            "value": self.value,
+        }
+
+    @classmethod
+    def from_json_dict(cls, data: dict[str, Any]) -> BoundaryCondition:
+        return cls(
+            mode=BoundaryMode(str(data["mode"])),
+            value=float(data.get("value", 0.0)),
+        )
+
+
 def dtype_name(dtype: torch.dtype | str) -> str:
     """Return a stable short dtype name such as `float32`."""
     if isinstance(dtype, str):
@@ -170,6 +218,7 @@ class ExecutionPlan:
 
     path: ExecutionPath
     input_signature: InputSignature
+    boundary: BoundaryCondition
     filter_fingerprint: str
     reason: str
     path_version: str = PATH_VERSION
@@ -182,6 +231,7 @@ class ExecutionPlan:
         return {
             "path": self.path.value,
             "input_signature": self.input_signature.to_json_dict(),
+            "boundary": self.boundary.to_json_dict(),
             "filter_fingerprint": self.filter_fingerprint,
             "reason": self.reason,
             "path_version": self.path_version,
@@ -199,6 +249,7 @@ class ExecutionPlan:
         return cls(
             path=ExecutionPath(str(data["path"])),
             input_signature=InputSignature.from_json_dict(data["input_signature"]),
+            boundary=BoundaryCondition.from_json_dict(data["boundary"]),
             filter_fingerprint=str(data["filter_fingerprint"]),
             reason=str(data["reason"]),
             path_version=str(data.get("path_version", PATH_VERSION)),

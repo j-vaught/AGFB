@@ -10,6 +10,8 @@ from typing import Any
 
 import torch
 
+from agfb_filters.execution import BoundaryCondition
+
 MetadataValue = int | float | str
 
 
@@ -18,7 +20,7 @@ class GradientFilterDefinition:
     """Math and weight definition for one gradient filter."""
 
     name: str
-    padding_mode: str
+    default_boundary: BoundaryCondition
     kernel_x: torch.Tensor | None = None
     kernel_y: torch.Tensor | None = None
     smooth_kernel_1d: torch.Tensor | None = None
@@ -29,6 +31,9 @@ class GradientFilterDefinition:
     metadata: Mapping[str, MetadataValue] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.default_boundary, BoundaryCondition):
+            object.__setattr__(self, "default_boundary", BoundaryCondition(self.default_boundary))
+
         has_kernel_x = self.kernel_x is not None
         has_kernel_y = self.kernel_y is not None
         has_smooth_kernel = self.smooth_kernel_1d is not None
@@ -73,7 +78,7 @@ class GradientFilterDefinition:
         hasher = hashlib.sha256()
         payload = {
             "name": self.name,
-            "padding_mode": self.padding_mode,
+            "default_boundary": self.default_boundary.to_json_dict(),
             "spatial_padding": self.spatial_padding,
             "support": self.support,
             "symmetry": self.symmetry,

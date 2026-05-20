@@ -15,6 +15,7 @@ from agfb_filters.execution import (
     PATH_VERSION,
     BenchmarkConfig,
     BenchmarkResult,
+    BoundaryCondition,
     ExecutionPath,
     ExecutionPlan,
     InputSignature,
@@ -35,12 +36,16 @@ class AutoRunner:
         self,
         definition: GradientFilterDefinition,
         input_signature: InputSignature,
+        *,
+        boundary: BoundaryCondition,
     ) -> ExecutionPlan:
         """Return a heuristic concrete path recommendation."""
+        boundary = _require_boundary_condition(boundary)
         path, estimated_cost, reason = self._estimate_path(definition, input_signature)
         return ExecutionPlan(
             path=path,
             input_signature=input_signature,
+            boundary=boundary,
             filter_fingerprint=definition.fingerprint(),
             reason=reason,
             estimated_cost=estimated_cost,
@@ -50,14 +55,17 @@ class AutoRunner:
         self,
         definition: GradientFilterDefinition,
         input_signature: InputSignature,
+        *,
+        boundary: BoundaryCondition,
     ) -> ExecutionPlan:
         """Return a cached plan, estimating and storing one on a miss."""
-        cache_key = self.cache_key(definition, input_signature)
+        boundary = _require_boundary_condition(boundary)
+        cache_key = self.cache_key(definition, input_signature, boundary=boundary)
         cached = self._memory_cache.get(cache_key)
         if cached is not None:
             return cached
 
-        plan = self.estimate_best(definition, input_signature)
+        plan = self.estimate_best(definition, input_signature, boundary=boundary)
         self._memory_cache[cache_key] = plan
         self._write_json_cache()
         return plan
@@ -66,9 +74,12 @@ class AutoRunner:
         self,
         definition: GradientFilterDefinition,
         input_signature: InputSignature,
+        *,
+        boundary: BoundaryCondition,
         benchmark_config: BenchmarkConfig | None = None,
     ) -> ExecutionPlan:
         """Benchmark valid candidate paths on synthetic input and cache the winner."""
+        boundary = _require_boundary_condition(boundary)
         config = BenchmarkConfig() if benchmark_config is None else benchmark_config
         image = torch.randn(
             input_signature.batch,
@@ -83,14 +94,15 @@ class AutoRunner:
         for path in candidates:
             try:
                 for _ in range(config.warmup_runs):
-                    run_filter(definition, image, path=path)
+                    run_filter(definition, image, path=path, boundary=boundary)
                     _synchronize_if_needed(image)
                 timer = Timer(
-                    stmt="run_filter(definition, image, path=path)",
+                    stmt="run_filter(definition, image, path=path, boundary=boundary)",
                     globals={
                         "definition": definition,
                         "image": image,
                         "path": path,
+                        "boundary": boundary,
                         "run_filter": run_filter,
                     },
                 )
@@ -114,13 +126,14 @@ class AutoRunner:
         plan = ExecutionPlan(
             path=best_result.path,
             input_signature=input_signature,
+            boundary=boundary,
             filter_fingerprint=definition.fingerprint(),
             reason="empirical benchmark",
             estimated_cost=best_result.median_seconds,
             benchmark_result=best_result,
             benchmark_results=tuple(results),
         )
-        self._memory_cache[self.cache_key(definition, input_signature)] = plan
+        self._memory_cache[self.cache_key(definition, input_signature, boundary=boundary)] = plan
         self._write_json_cache()
         return plan
 
@@ -154,10 +167,14 @@ class AutoRunner:
         self,
         definition: GradientFilterDefinition,
         input_signature: InputSignature,
+        *,
+        boundary: BoundaryCondition,
     ) -> str:
         """Return the runtime-sensitive cache key for a filter/input pair."""
+        boundary = _require_boundary_condition(boundary)
         payload = {
             "filter_fingerprint": definition.fingerprint(),
+            "boundary": boundary.to_json_dict(),
             "path_version": PATH_VERSION,
             "input_signature": input_signature.to_json_dict(),
             "torch_version": torch.__version__,
@@ -215,7 +232,10 @@ class AutoRunner:
             return
         for key, plan_data in plans.items():
             if isinstance(key, str) and isinstance(plan_data, dict):
-                self._memory_cache[key] = ExecutionPlan.from_json_dict(plan_data)
+                try:
+                    self._memory_cache[key] = ExecutionPlan.from_json_dict(plan_data)
+                except (KeyError, TypeError, ValueError):
+                    continue
 
     def _write_json_cache(self) -> None:
         if self.cache_path is None:
@@ -251,6 +271,12 @@ def _is_antipodal_candidate(
             rtol=0.0,
         )
     )
+
+
+def _require_boundary_condition(boundary: BoundaryCondition) -> BoundaryCondition:
+    if not isinstance(boundary, BoundaryCondition):
+        raise ValueError("boundary must be a BoundaryCondition")
+    return boundary
 
 
 def _synchronize_if_needed(image: torch.Tensor) -> None:

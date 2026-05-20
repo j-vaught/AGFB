@@ -11,6 +11,8 @@ from agfb_filters.derivative_of_gaussian import (
 from agfb_filters.execution import (
     BenchmarkConfig,
     BenchmarkResult,
+    BoundaryCondition,
+    BoundaryMode,
     ExecutionPath,
     ExecutionPlan,
     InputSignature,
@@ -35,6 +37,8 @@ __all__ = [
     "AutoRunner",
     "BenchmarkConfig",
     "BenchmarkResult",
+    "BoundaryCondition",
+    "BoundaryMode",
     "CPGF",
     "DerivativeOfGaussian",
     "ExecutionPath",

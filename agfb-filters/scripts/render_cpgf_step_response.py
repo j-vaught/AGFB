@@ -90,10 +90,12 @@ def render_step_response(output_path: Path) -> None:
 
     image = torch.zeros(1, image_height, image_width)
     image[:, :, edge_column:] = 1.0
+    definition = cpgf_definition(radius=2, degree=2)
     gradient_x, _ = run_filter(
-        cpgf_definition(radius=2, degree=2),
+        definition,
         image,
         path=ExecutionPath.SPATIAL_DENSE,
+        boundary=definition.default_boundary,
     )
     response_by_column = gradient_x.abs().mean(dim=(0, 1))
     response_max = float(response_by_column.max())
