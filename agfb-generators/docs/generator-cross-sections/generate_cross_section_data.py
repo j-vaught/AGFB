@@ -221,7 +221,7 @@ def _specs() -> list[GeneratorSpec]:
             family="Frequency Fields",
             name="sinusoid",
             title="Sinusoid Generator",
-            render=lambda: sinusoid(HEIGHT, WIDTH, freq=0.035, theta_rad=0.0),
+            render=lambda: sinusoid(HEIGHT, WIDTH, spatial_frequency=0.035, angle_rad=0.0),
         ),
         GeneratorSpec(
             family="Frequency Fields",

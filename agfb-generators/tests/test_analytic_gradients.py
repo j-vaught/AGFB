@@ -146,8 +146,8 @@ def test_curved_arc_infers_tensor_device() -> None:
 
 
 def test_sinusoid_gradient_matches_fd() -> None:
-    """Check the sinusoidal grating gradient used for AGFB frequency response."""
-    f = sinusoid(256, 256, freq=0.05, theta_rad=math.radians(30.0))
+    """Check the sinusoidal grating gradient used for frequency response."""
+    f = sinusoid(256, 256, spatial_frequency=0.05, angle_rad=math.radians(30.0))
     _check_signal_mask(f, rel_tol=1e-2, name="sinusoid")
 
 

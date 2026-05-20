@@ -10,6 +10,7 @@ from test_analytic_gradients import _check_signal_mask
 from agfb_generators.anisotropic_blob import anisotropic_blob
 from agfb_generators.chirp import chirp
 from agfb_generators.gabor_packet import gabor_packet
+from agfb_generators.sinusoid import sinusoid
 
 
 def test_anisotropic_blob_gradient_matches_fd() -> None:
@@ -40,6 +41,81 @@ def test_chirp_gradient_matches_fd() -> None:
         center_offset=4.0,
     )
     _check_signal_mask(f, rel_tol=1e-2, name="chirp")
+
+
+def test_sinusoid_default_call_renders_frame() -> None:
+    """Verify sinusoid defaults render a usable analytic frame."""
+    frame = sinusoid(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
+def test_sinusoid_batched_consistent_with_scalar() -> None:
+    """Verify batched sinusoids match repeated scalar renders."""
+    height = 80
+    width = 84
+    spatial_frequency = torch.tensor([0.012, 0.018, 0.024])
+    angle = torch.tensor([0.0, math.radians(25.0), math.radians(50.0)])
+    amplitude = torch.tensor([0.7, 1.0, 1.3])
+    phase = torch.tensor([0.0, 0.25, 0.5])
+
+    out = sinusoid(
+        height,
+        width,
+        spatial_frequency=spatial_frequency,
+        angle_rad=angle,
+        amplitude=amplitude,
+        phase_rad=phase,
+    )
+
+    assert out.I.shape == (3, height, width)
+    assert out.g.shape == (3, 2, height, width)
+    for i in range(3):
+        single = sinusoid(
+            height,
+            width,
+            spatial_frequency=float(spatial_frequency[i]),
+            angle_rad=float(angle[i]),
+            amplitude=float(amplitude[i]),
+            phase_rad=float(phase[i]),
+        )
+        assert torch.equal(out.I[i], single.I[0])
+        assert torch.equal(out.gx[i], single.gx[0])
+        assert torch.equal(out.gy[i], single.gy[0])
+
+
+def test_sinusoid_honors_requested_device() -> None:
+    """Verify scalar sinusoid inputs render on the requested compute device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = sinusoid(
+        20,
+        24,
+        spatial_frequency=0.012,
+        angle_rad=math.radians(25.0),
+        amplitude=1.0,
+        device=device,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
+
+
+def test_sinusoid_infers_tensor_device() -> None:
+    """Verify tensor inputs keep sinusoid output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frame = sinusoid(
+        20,
+        24,
+        spatial_frequency=torch.tensor([0.012, 0.018], device=device),
+        angle_rad=torch.tensor([0.0, math.radians(25.0)], device=device),
+        amplitude=1.0,
+    )
+
+    assert frame.I.device == device
+    assert frame.g.device == device
 
 
 def test_chirp_batched_consistent_with_scalar() -> None:
