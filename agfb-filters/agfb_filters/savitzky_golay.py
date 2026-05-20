@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.definitions import GradientFilterDefinition
+from agfb_filters.execution import ExecutionPath, ExecutionPlan
 from agfb_filters.polynomial import build_polynomial_gradient_kernels
 from agfb_filters.runner import run_filter
 
@@ -34,8 +35,8 @@ def savitzky_golay_definition(
         padding_mode="reflect",
         kernel_x=kernel_x,
         kernel_y=kernel_y,
-        strategy_hint=ExecutionStrategy.AUTO,
         support="square",
+        symmetry="odd",
         metadata={"radius": int(radius), "degree": int(degree)},
     )
 
@@ -52,6 +53,6 @@ class SavitzkyGolay:
         self,
         image: torch.Tensor,
         *,
-        strategy: ExecutionStrategy | str = ExecutionStrategy.AUTO,
+        path: ExecutionPath | ExecutionPlan | str,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        return run_filter(self.definition, image, strategy=strategy)
+        return run_filter(self.definition, image, path=path)

@@ -11,7 +11,8 @@ from functools import cache
 import torch
 
 from agfb_filters.base import linear_convolution_1d
-from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.definitions import GradientFilterDefinition
+from agfb_filters.execution import ExecutionPath, ExecutionPlan
 from agfb_filters.runner import run_filter
 
 _SMOOTH_KERNEL_3 = torch.tensor([1.0, 2.0, 1.0]) / 4.0
@@ -37,19 +38,31 @@ def sobel_definition(kernel_size: int) -> GradientFilterDefinition:
         padding_mode="replicate",
         smooth_kernel_1d=smooth_kernel,
         derivative_kernel_1d=derivative_kernel,
-        strategy_hint=ExecutionStrategy.SEPARABLE,
         support="separable",
+        symmetry="odd",
         metadata={"kernel_size": kernel_size},
     )
 
 
-def sobel_3(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    return run_filter(sobel_definition(3), image)
+def sobel_3(
+    image: torch.Tensor,
+    *,
+    path: ExecutionPath | ExecutionPlan | str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    return run_filter(sobel_definition(3), image, path=path)
 
 
-def sobel_5(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    return run_filter(sobel_definition(5), image)
+def sobel_5(
+    image: torch.Tensor,
+    *,
+    path: ExecutionPath | ExecutionPlan | str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    return run_filter(sobel_definition(5), image, path=path)
 
 
-def sobel_7(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    return run_filter(sobel_definition(7), image)
+def sobel_7(
+    image: torch.Tensor,
+    *,
+    path: ExecutionPath | ExecutionPlan | str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    return run_filter(sobel_definition(7), image, path=path)

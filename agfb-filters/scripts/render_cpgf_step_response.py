@@ -13,7 +13,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agfb_filters import cpgf_definition, run_filter
+from agfb_filters import ExecutionPath, cpgf_definition, run_filter
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -90,7 +90,11 @@ def render_step_response(output_path: Path) -> None:
 
     image = torch.zeros(1, image_height, image_width)
     image[:, :, edge_column:] = 1.0
-    gradient_x, _ = run_filter(cpgf_definition(radius=2, degree=2), image)
+    gradient_x, _ = run_filter(
+        cpgf_definition(radius=2, degree=2),
+        image,
+        path=ExecutionPath.SPATIAL_DENSE,
+    )
     response_by_column = gradient_x.abs().mean(dim=(0, 1))
     response_max = float(response_by_column.max())
 

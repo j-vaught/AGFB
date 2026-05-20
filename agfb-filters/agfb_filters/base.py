@@ -9,8 +9,8 @@ Output convention.
     `gradient_x` is the horizontal gradient along image columns.
     `gradient_y` is the vertical gradient along image rows.
 
-Padding defaults to `replicate`. FFT-based filters use `reflect` because the
-FFT path needs a boundary extension that does not alias.
+Padding defaults to `replicate`. Individual filter definitions may override
+that when a different boundary convention is part of the filter.
 """
 
 from __future__ import annotations
@@ -125,60 +125,66 @@ def fft_cross_correlation(
     image: torch.Tensor,
     kernels: tuple[torch.Tensor, torch.Tensor],
     *,
-    pad_mode: str = "reflect",
+    pad_mode: str = "replicate",
+    spatial_padding: tuple[int, int, int, int] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Cross-correlate `image` with horizontal and vertical kernels via FFT.
 
-    Both kernels must have the same odd, square shape. Returns
-    `(gradient_x, gradient_y)`.
+    Returns `(gradient_x, gradient_y)` with the same padding and output shape
+    semantics as dense spatial cross-correlation.
     """
     kernel_x, kernel_y = kernels
     if kernel_x.shape != kernel_y.shape:
         raise ValueError(f"kernel shapes must match, got {kernel_x.shape} vs {kernel_y.shape}")
     kernel_height, kernel_width = kernel_x.shape
-    if kernel_height != kernel_width or kernel_height % 2 == 0:
-        raise ValueError(
-            f"FFT path requires odd square kernels, got {kernel_height}x{kernel_width}"
+    if spatial_padding is None:
+        if kernel_height % 2 == 0 or kernel_width % 2 == 0:
+            raise ValueError("even-sized kernels require explicit spatial padding")
+        spatial_padding = (
+            kernel_width // 2,
+            kernel_width // 2,
+            kernel_height // 2,
+            kernel_height // 2,
         )
-    kernel_radius = kernel_height // 2
 
     _, image_height, image_width = image.shape
-    padded_height = image_height + 2 * kernel_radius
-    padded_width = image_width + 2 * kernel_radius
+    padded_image = F.pad(image.unsqueeze(1), spatial_padding, mode=pad_mode).squeeze(1)
+    padded_height = int(padded_image.shape[-2])
+    padded_width = int(padded_image.shape[-1])
+    output_height = padded_height - kernel_height + 1
+    output_width = padded_width - kernel_width + 1
+    if output_height != image_height or output_width != image_width:
+        raise ValueError(
+            "spatial padding must preserve input shape, "
+            f"got output {output_height}x{output_width} for input {image_height}x{image_width}"
+        )
 
-    image_channels = image.unsqueeze(1)
-    padded_image = F.pad(
-        image_channels,
-        (kernel_radius, kernel_radius, kernel_radius, kernel_radius),
-        mode=pad_mode,
-    ).squeeze(1)
-    padded_kernel_x = torch.zeros(
-        padded_height,
-        padded_width,
-        dtype=image.dtype,
-        device=image.device,
-    )
-    padded_kernel_y = torch.zeros(
-        padded_height,
-        padded_width,
-        dtype=image.dtype,
-        device=image.device,
-    )
-    padded_kernel_x[:kernel_height, :kernel_width] = kernel_x
-    padded_kernel_y[:kernel_height, :kernel_width] = kernel_y
+    fft_shape = (padded_height + kernel_height - 1, padded_width + kernel_width - 1)
+    padded_kernel_x = torch.zeros(fft_shape, dtype=image.dtype, device=image.device)
+    padded_kernel_y = torch.zeros(fft_shape, dtype=image.dtype, device=image.device)
+    padded_kernel_x[:kernel_height, :kernel_width] = torch.flip(kernel_x, dims=(0, 1))
+    padded_kernel_y[:kernel_height, :kernel_width] = torch.flip(kernel_y, dims=(0, 1))
 
-    image_spectrum = torch_fft.rfft2(padded_image)
+    image_spectrum = torch_fft.rfft2(padded_image, s=fft_shape)
     gradient_x_full = torch_fft.irfft2(
-        image_spectrum * torch_fft.rfft2(padded_kernel_x).conj(),
-        s=(padded_height, padded_width),
+        image_spectrum * torch_fft.rfft2(padded_kernel_x, s=fft_shape),
+        s=fft_shape,
     )
     gradient_y_full = torch_fft.irfft2(
-        image_spectrum * torch_fft.rfft2(padded_kernel_y).conj(),
-        s=(padded_height, padded_width),
+        image_spectrum * torch_fft.rfft2(padded_kernel_y, s=fft_shape),
+        s=fft_shape,
     )
     return (
-        gradient_x_full[..., :image_height, :image_width].contiguous(),
-        gradient_y_full[..., :image_height, :image_width].contiguous(),
+        gradient_x_full[
+            ...,
+            kernel_height - 1 : kernel_height - 1 + image_height,
+            kernel_width - 1 : kernel_width - 1 + image_width,
+        ].contiguous(),
+        gradient_y_full[
+            ...,
+            kernel_height - 1 : kernel_height - 1 + image_height,
+            kernel_width - 1 : kernel_width - 1 + image_width,
+        ].contiguous(),
     )
 
 

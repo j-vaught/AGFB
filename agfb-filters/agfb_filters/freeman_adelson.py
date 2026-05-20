@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.definitions import GradientFilterDefinition
 from agfb_filters.derivative_of_gaussian import derivative_of_gaussian_definition
+from agfb_filters.execution import ExecutionPath, ExecutionPlan
 from agfb_filters.runner import run_filter
 
 
@@ -33,8 +34,8 @@ def freeman_adelson_g1_definition(
         padding_mode=derivative_definition.padding_mode,
         smooth_kernel_1d=derivative_definition.smooth_kernel_1d,
         derivative_kernel_1d=derivative_definition.derivative_kernel_1d,
-        strategy_hint=ExecutionStrategy.SEPARABLE,
         support=derivative_definition.support,
+        symmetry=derivative_definition.symmetry,
         metadata=derivative_definition.metadata,
     )
 
@@ -48,6 +49,6 @@ class FreemanAdelsonG1:
         self,
         image: torch.Tensor,
         *,
-        strategy: ExecutionStrategy | str = ExecutionStrategy.AUTO,
+        path: ExecutionPath | ExecutionPlan | str,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        return run_filter(self.definition, image, strategy=strategy)
+        return run_filter(self.definition, image, path=path)

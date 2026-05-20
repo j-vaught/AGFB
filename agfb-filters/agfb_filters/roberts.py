@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import torch
 
-from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
+from agfb_filters.definitions import GradientFilterDefinition
+from agfb_filters.execution import ExecutionPath, ExecutionPlan
 from agfb_filters.runner import run_filter
 
 _KERNEL_X = torch.tensor([[-1.0, 1.0], [-1.0, 1.0]]) / 2.0
@@ -24,9 +25,9 @@ _DEFINITION = GradientFilterDefinition(
     padding_mode="replicate",
     kernel_x=_KERNEL_X,
     kernel_y=_KERNEL_Y,
-    strategy_hint=ExecutionStrategy.SPATIAL,
     spatial_padding=(0, 1, 0, 1),
     support="offset_2x2",
+    symmetry="odd",
 )
 
 
@@ -34,5 +35,9 @@ def roberts_definition() -> GradientFilterDefinition:
     return _DEFINITION
 
 
-def roberts(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    return run_filter(_DEFINITION, image)
+def roberts(
+    image: torch.Tensor,
+    *,
+    path: ExecutionPath | ExecutionPlan | str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    return run_filter(_DEFINITION, image, path=path)
