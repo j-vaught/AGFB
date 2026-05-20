@@ -63,20 +63,20 @@ def smoothed_bar(
     rising_edge = smoothed_step(
         height,
         width,
-        theta_rad=angle_rad,
-        x0=negative_edge_offset,
-        contrast=amplitude,
-        sigma_e=edge_sigma,
+        angle_rad=angle_rad,
+        center_offset=negative_edge_offset,
+        amplitude=amplitude,
+        edge_sigma=edge_sigma,
         device=device,
         dtype=dtype,
     )
     falling_edge = smoothed_step(
         height,
         width,
-        theta_rad=angle_rad,
-        x0=positive_edge_offset,
-        contrast=negative_amplitude,
-        sigma_e=edge_sigma,
+        angle_rad=angle_rad,
+        center_offset=positive_edge_offset,
+        amplitude=negative_amplitude,
+        edge_sigma=edge_sigma,
         device=device,
         dtype=dtype,
     )

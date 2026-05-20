@@ -32,7 +32,7 @@ from agfb_generators import (
 @pytest.mark.parametrize(
     ("label", "render"),
     [
-        ("smoothed_step_sigma", lambda: smoothed_step(16, 16, theta_rad=0.0, sigma_e=0.0)),
+        ("smoothed_step_sigma", lambda: smoothed_step(16, 16, angle_rad=0.0, edge_sigma=0.0)),
         ("smoothed_bar_sigma", lambda: smoothed_bar(16, 16, edge_sigma=0.0)),
         (
             "smoothed_ramp_sigma",

@@ -62,8 +62,8 @@ def _check_signal_mask(frame: Frame, *, rel_tol: float, name: str) -> None:
 
 
 def test_smoothed_step_gradient_matches_fd() -> None:
-    """Check the smoothed straight edge gradient used by the AGFB benchmark."""
-    f = smoothed_step(256, 256, theta_rad=math.radians(30.0), sigma_e=4.0)
+    """Check the smoothed straight edge gradient used by the benchmark."""
+    f = smoothed_step(256, 256, angle_rad=math.radians(30.0), edge_sigma=4.0)
     _check_signal_mask(f, rel_tol=1e-3, name="smoothed_step")
 
 

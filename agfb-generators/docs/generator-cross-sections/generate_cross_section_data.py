@@ -103,7 +103,7 @@ def _specs() -> list[GeneratorSpec]:
             family="Edges And Transitions",
             name="smoothed_step",
             title="Smoothed Step Generator",
-            render=lambda: smoothed_step(HEIGHT, WIDTH, theta_rad=0.0, sigma_e=5.0),
+            render=lambda: smoothed_step(HEIGHT, WIDTH, angle_rad=0.0, edge_sigma=5.0),
         ),
         GeneratorSpec(
             family="Edges And Transitions",
