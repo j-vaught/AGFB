@@ -21,7 +21,7 @@ with torch.no_grad():
         160,
         bar_width=34,
         angle_rad=math.radians(18),
-        edge_sigma=4,
+        edge_sigma=0.1,
         device=device,
     )
     intensity = frame.I[0].cpu()
