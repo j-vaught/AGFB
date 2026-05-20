@@ -250,9 +250,10 @@ def _png_chunk(tag: bytes, data: bytes) -> bytes:
 def _display_html(markup: str) -> None:
     try:
         from IPython.display import HTML, display
-    except ImportError:
-        print(markup)
-        return
+    except ImportError as exc:
+        raise RuntimeError(
+            "agfb_generators.notebook helpers require an IPython or Jupyter environment"
+        ) from exc
     display(HTML(markup))
 
 
