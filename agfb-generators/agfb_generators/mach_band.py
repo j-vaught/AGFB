@@ -21,22 +21,16 @@ def mach_band(
     height: int,
     width: int,
     *,
-    ramp_width: Numeric | None = None,
-    angle_rad: Numeric | None = None,
-    center_offset: Numeric | None = None,
-    amplitude: Numeric | None = None,
-    edge_sigma: Numeric | None = None,
-    shoulder_amplitude: Numeric | None = None,
-    shoulder_sigma: Numeric | None = None,
-    width_px: Numeric | None = None,
-    theta_rad: Numeric | None = None,
-    x0: Numeric | None = None,
-    contrast: Numeric | None = None,
-    sigma_e: Numeric | None = None,
-    band_strength: Numeric | None = None,
-    band_sigma: Numeric | None = None,
+    ramp_width: Numeric = 64.0,
+    angle_rad: Numeric = 0.0,
+    center_offset: Numeric = 0.0,
+    amplitude: Numeric = 1.0,
+    edge_sigma: Numeric = 3.0,
+    shoulder_amplitude: Numeric = 0.08,
+    shoulder_sigma: Numeric = 4.0,
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
+    **legacy_kwargs: Numeric,
 ) -> Frame:
     """Render a batched smoothed ramp with paired Mach-band shoulders.
 
@@ -44,6 +38,9 @@ def mach_band(
     transition whose apparent local contrast is distorted near the two ramp
     edges. It is useful for checking whether a filter overreacts to bright and
     dark shoulders instead of the underlying ramp transition.
+
+    The default call renders a horizontal 64 px ramp centered in the image,
+    smoothed with a 3 px Gaussian edge spread and 8 percent Mach shoulders.
 
     `ramp_width` is the distance in pixels between the low and high ramp edges.
     `angle_rad` is the ramp normal direction in radians, measured from the
@@ -62,24 +59,23 @@ def mach_band(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
-    ramp_width = _resolve_required_parameter("ramp_width", ramp_width, "width_px", width_px)
-    angle_rad = _resolve_required_parameter("angle_rad", angle_rad, "theta_rad", theta_rad)
-    center_offset = _resolve_optional_parameter("center_offset", center_offset, "x0", x0, 0.0)
-    amplitude = _resolve_optional_parameter("amplitude", amplitude, "contrast", contrast, 1.0)
-    edge_sigma = _resolve_optional_parameter("edge_sigma", edge_sigma, "sigma_e", sigma_e, 1.0)
-    shoulder_amplitude = _resolve_optional_parameter(
-        "shoulder_amplitude",
+    (
+        ramp_width,
+        angle_rad,
+        center_offset,
+        amplitude,
+        edge_sigma,
         shoulder_amplitude,
-        "band_strength",
-        band_strength,
-        0.08,
-    )
-    shoulder_sigma = _resolve_optional_parameter(
-        "shoulder_sigma",
         shoulder_sigma,
-        "band_sigma",
-        band_sigma,
-        2.0,
+    ) = _apply_legacy_aliases(
+        legacy_kwargs,
+        ramp_width=ramp_width,
+        angle_rad=angle_rad,
+        center_offset=center_offset,
+        amplitude=amplitude,
+        edge_sigma=edge_sigma,
+        shoulder_amplitude=shoulder_amplitude,
+        shoulder_sigma=shoulder_sigma,
     )
 
     device = infer_device(
@@ -155,32 +151,46 @@ def mach_band(
     return pack(intensity, gradient_x, gradient_y)
 
 
-def _resolve_required_parameter(
-    parameter_name: str,
-    value: Numeric | None,
-    legacy_name: str,
-    legacy_value: Numeric | None,
-) -> Numeric:
-    if value is not None and legacy_value is not None:
-        raise TypeError(f"pass either {parameter_name} or {legacy_name}, not both")
-    if value is not None:
-        return value
-    if legacy_value is not None:
-        return legacy_value
-    raise TypeError(f"missing required keyword-only argument: {parameter_name}")
-
-
-def _resolve_optional_parameter(
-    parameter_name: str,
-    value: Numeric | None,
-    legacy_name: str,
-    legacy_value: Numeric | None,
-    default: Numeric,
-) -> Numeric:
-    if value is not None and legacy_value is not None:
-        raise TypeError(f"pass either {parameter_name} or {legacy_name}, not both")
-    if value is not None:
-        return value
-    if legacy_value is not None:
-        return legacy_value
-    return default
+def _apply_legacy_aliases(
+    legacy_kwargs: dict[str, Numeric],
+    *,
+    ramp_width: Numeric,
+    angle_rad: Numeric,
+    center_offset: Numeric,
+    amplitude: Numeric,
+    edge_sigma: Numeric,
+    shoulder_amplitude: Numeric,
+    shoulder_sigma: Numeric,
+) -> tuple[Numeric, Numeric, Numeric, Numeric, Numeric, Numeric, Numeric]:
+    alias_map = {
+        "width_px": "ramp_width",
+        "theta_rad": "angle_rad",
+        "x0": "center_offset",
+        "contrast": "amplitude",
+        "sigma_e": "edge_sigma",
+        "band_strength": "shoulder_amplitude",
+        "band_sigma": "shoulder_sigma",
+    }
+    params = {
+        "ramp_width": ramp_width,
+        "angle_rad": angle_rad,
+        "center_offset": center_offset,
+        "amplitude": amplitude,
+        "edge_sigma": edge_sigma,
+        "shoulder_amplitude": shoulder_amplitude,
+        "shoulder_sigma": shoulder_sigma,
+    }
+    for legacy_name, value in legacy_kwargs.items():
+        parameter_name = alias_map.get(legacy_name)
+        if parameter_name is None:
+            raise TypeError(f"unexpected keyword argument: {legacy_name}")
+        params[parameter_name] = value
+    return (
+        params["ramp_width"],
+        params["angle_rad"],
+        params["center_offset"],
+        params["amplitude"],
+        params["edge_sigma"],
+        params["shoulder_amplitude"],
+        params["shoulder_sigma"],
+    )

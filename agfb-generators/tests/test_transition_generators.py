@@ -154,6 +154,16 @@ def test_mach_band_has_opposite_shoulders() -> None:
     assert f.I[0, 0, high_idx] > base.I[0, 0, high_idx]
 
 
+def test_mach_band_default_call_renders_frame() -> None:
+    """Verify Mach-band defaults render a usable analytic frame."""
+    frame = mach_band(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
 def test_mach_band_legacy_names_match_preferred_names() -> None:
     """Verify the old Mach-band keyword aliases preserve existing callers."""
     preferred = mach_band(
