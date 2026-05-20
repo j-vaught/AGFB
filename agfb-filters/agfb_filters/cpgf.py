@@ -1,4 +1,4 @@
-"""AGFB disc-polynomial gradient filter.
+"""Circular Polynomial Gradient Filter.
 
 This filter fits a polynomial least-squares surface over a discrete disc and
 uses the linear polynomial terms as horizontal and vertical gradient kernels.
@@ -15,12 +15,12 @@ from agfb_filters.polynomial import build_polynomial_gradient_kernels
 from agfb_filters.runner import run_filter
 
 
-def agfb_kernels(
+def cpgf_kernels(
     radius: int,
     degree: int,
     device: torch.device | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Build AGFB disc-polynomial cross-correlation kernels.
+    """Build CPGF disc-polynomial cross-correlation kernels.
 
     Returns `(kernel_x, kernel_y)`. Each kernel has shape
     `(2 * radius + 1, 2 * radius + 1)` and dtype float32.
@@ -33,14 +33,14 @@ def agfb_kernels(
     )
 
 
-def agfb_definition(
+def cpgf_definition(
     radius: int,
     degree: int,
     device: torch.device | None = None,
 ) -> GradientFilterDefinition:
-    kernel_x, kernel_y = agfb_kernels(radius=radius, degree=degree, device=device)
+    kernel_x, kernel_y = cpgf_kernels(radius=radius, degree=degree, device=device)
     return GradientFilterDefinition(
-        name="agfb",
+        name="cpgf",
         padding_mode="reflect",
         kernel_x=kernel_x,
         kernel_y=kernel_y,
@@ -50,13 +50,13 @@ def agfb_definition(
     )
 
 
-class AGFB:
-    """Holds prebuilt AGFB kernels for one `(radius, degree)` configuration."""
+class CPGF:
+    """Holds prebuilt CPGF kernels for one `(radius, degree)` configuration."""
 
     def __init__(self, radius: int, degree: int, device: torch.device | None = None) -> None:
         self.radius = int(radius)
         self.degree = int(degree)
-        self.definition = agfb_definition(radius=radius, degree=degree, device=device)
+        self.definition = cpgf_definition(radius=radius, degree=degree, device=device)
 
     def apply(
         self,

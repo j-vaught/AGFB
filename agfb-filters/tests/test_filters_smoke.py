@@ -3,13 +3,13 @@ from __future__ import annotations
 import torch
 
 from agfb_filters import (
-    AGFB,
+    CPGF,
     DerivativeOfGaussian,
     ExecutionStrategy,
     FreemanAdelsonG1,
     SavitzkyGolay,
-    agfb_definition,
     central_difference,
+    cpgf_definition,
     farid_simoncelli_5,
     prewitt_3,
     roberts,
@@ -33,7 +33,7 @@ def test_filters_return_gradient_pair_with_input_shape() -> None:
         sobel_3,
         sobel_5,
         sobel_7,
-        AGFB(radius=2, degree=2).apply,
+        CPGF(radius=2, degree=2).apply,
         DerivativeOfGaussian(sigma=1.0).apply,
         FreemanAdelsonG1(sigma=1.0).apply,
         SavitzkyGolay(radius=2, degree=2).apply,
@@ -55,9 +55,9 @@ def test_runner_can_apply_definition_directly() -> None:
     assert gradient_y.shape == image.shape
 
 
-def test_dense_runner_strategies_match_for_agfb_definition() -> None:
+def test_dense_runner_strategies_match_for_cpgf_definition() -> None:
     image = torch.randn(1, 16, 17)
-    definition = agfb_definition(radius=2, degree=2)
+    definition = cpgf_definition(radius=2, degree=2)
 
     spatial_gradient_x, spatial_gradient_y = run_filter(
         definition,

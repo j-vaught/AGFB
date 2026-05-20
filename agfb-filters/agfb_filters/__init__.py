@@ -1,7 +1,7 @@
 """Batched, GPU-accelerated filters for the Analytical Gradient Filter Benchmark."""
 
-from agfb_filters.agfb import AGFB, agfb_definition, agfb_kernels
 from agfb_filters.central_difference import central_difference, central_difference_definition
+from agfb_filters.cpgf import CPGF, cpgf_definition, cpgf_kernels
 from agfb_filters.definitions import ExecutionStrategy, GradientFilterDefinition
 from agfb_filters.derivative_of_gaussian import (
     DerivativeOfGaussian,
@@ -24,16 +24,16 @@ from agfb_filters.scharr import scharr_3, scharr_3_definition
 from agfb_filters.sobel import sobel_3, sobel_5, sobel_7, sobel_definition
 
 __all__ = [
-    "AGFB",
+    "CPGF",
     "DerivativeOfGaussian",
     "ExecutionStrategy",
     "FreemanAdelsonG1",
     "GradientFilterDefinition",
     "SavitzkyGolay",
-    "agfb_definition",
-    "agfb_kernels",
     "central_difference",
     "central_difference_definition",
+    "cpgf_definition",
+    "cpgf_kernels",
     "derivative_of_gaussian_definition",
     "farid_simoncelli_5",
     "farid_simoncelli_5_definition",
