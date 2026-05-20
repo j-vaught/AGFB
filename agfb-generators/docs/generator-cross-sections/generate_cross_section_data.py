@@ -365,16 +365,7 @@ def _specs() -> list[GeneratorSpec]:
 
 
 def _polynomial_frame() -> Frame:
-    coeffs = torch.zeros(1, 4, 4)
-    coeffs[0, 0, 0] = 0.20
-    coeffs[0, 1, 0] = 0.35
-    coeffs[0, 0, 1] = -0.25
-    coeffs[0, 2, 0] = 0.12
-    coeffs[0, 0, 2] = -0.08
-    coeffs[0, 1, 1] = 0.18
-    coeffs[0, 2, 1] = 0.04
-    coeffs[0, 1, 2] = -0.03
-    return polynomial(HEIGHT, WIDTH, coeffs=coeffs, scale=64.0)
+    return polynomial(HEIGHT, WIDTH)
 
 
 def _plot_from_frame(spec: GeneratorSpec, frame: Frame, row: int) -> dict[str, object]:

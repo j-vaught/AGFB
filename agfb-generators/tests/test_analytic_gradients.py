@@ -305,11 +305,44 @@ def test_smoothed_bar_gradient_matches_fd() -> None:
 
 def test_polynomial_gradient_matches_fd() -> None:
     """Check the polynomial field generator used for exact low-order structure."""
-    coeffs = torch.zeros(1, 4, 4)
-    coeffs[0, 0, 0] = 0.0
-    coeffs[0, 1, 0] = 0.3
-    coeffs[0, 0, 1] = -0.2
-    coeffs[0, 2, 1] = 0.05
-    coeffs[0, 1, 2] = -0.04
-    f = polynomial(64, 64, coeffs=coeffs, scale=64.0)
+    coefficients = torch.zeros(1, 4, 4)
+    coefficients[0, 0, 0] = 0.0
+    coefficients[0, 1, 0] = 0.3
+    coefficients[0, 0, 1] = -0.2
+    coefficients[0, 2, 1] = 0.05
+    coefficients[0, 1, 2] = -0.04
+    f = polynomial(64, 64, coefficients=coefficients, coordinate_scale=64.0)
     _check_signal_mask(f, rel_tol=1e-3, name="polynomial")
+
+
+def test_polynomial_default_call_renders_frame() -> None:
+    """Verify the default polynomial surface is available for quick previews."""
+    frame = polynomial(32, 36)
+
+    assert frame.I.shape == (1, 32, 36)
+    assert frame.g.shape == (1, 2, 32, 36)
+    assert torch.isfinite(frame.I).all()
+    assert torch.isfinite(frame.g).all()
+
+
+def test_polynomial_accepts_2d_coefficients() -> None:
+    """Verify a single coefficient matrix renders one frame."""
+    coefficients = torch.zeros(3, 3)
+    coefficients[1, 0] = 0.5
+    coefficients[0, 1] = -0.25
+    frame = polynomial(20, 24, coefficients=coefficients, coordinate_scale=8.0)
+
+    assert frame.I.shape == (1, 20, 24)
+    assert frame.g.shape == (1, 2, 20, 24)
+
+
+def test_polynomial_infers_tensor_device() -> None:
+    """Verify coefficient tensors keep polynomial output on the same device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    coefficients = torch.zeros(2, 3, 3, device=device)
+    coefficients[:, 1, 0] = torch.tensor([0.3, 0.6], device=device)
+
+    frame = polynomial(20, 24, coefficients=coefficients, coordinate_scale=16.0)
+
+    assert frame.I.device == device
+    assert frame.g.device == device
