@@ -2,6 +2,7 @@
 name = "agfb-filters"
 version = "0.0.1"
 description = "Batched, GPU-accelerated filters for the Analytical Gradient Filter Benchmark"
+readme = "README.md"
 authors = [{ name = "J.C. Vaught" }]
 requires-python = ">=3.11"
 
