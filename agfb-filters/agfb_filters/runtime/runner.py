@@ -16,7 +16,13 @@ from agfb_filters.runtime.execution import (
 )
 from agfb_filters.runtime.tensor_ops import check_input, pad_with_boundary, separable_gradient
 
-_SPARSE_STACK_ELEMENT_LIMIT = 32_000_000
+_SPARSE_STACK_BYTE_LIMIT = 128 * 1024 * 1024
+
+_KernelCacheKey = tuple[str, str, str]
+_BoundaryFftCacheKey = tuple[str, str, tuple[int, int], str, float, str, str]
+_SparseOffsetCacheValue = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+_AntipodalPair = tuple[int, int, torch.Tensor]
+_AntipodalCacheKey = tuple[str, str, str, str]
 
 
 def run_filter(
@@ -33,9 +39,11 @@ def run_filter(
 
 class _FilterRunner:
     def __init__(self) -> None:
-        self._fft_kernel_cache: dict[
-            tuple[str, str, tuple[int, int], str, float, str, str], torch.Tensor
-        ] = {}
+        self._dense_kernel_cache: dict[_KernelCacheKey, tuple[torch.Tensor, torch.Tensor]] = {}
+        self._spatial_kernel_stack_cache: dict[_KernelCacheKey, torch.Tensor] = {}
+        self._sparse_offset_cache: dict[_KernelCacheKey, _SparseOffsetCacheValue] = {}
+        self._antipodal_pair_cache: dict[_AntipodalCacheKey, list[_AntipodalPair]] = {}
+        self._fft_kernel_cache: dict[_BoundaryFftCacheKey, torch.Tensor] = {}
 
     def run(
         self,
@@ -57,15 +65,16 @@ class _FilterRunner:
                 boundary=selected_boundary,
             )
 
-        dense_kernels = _dense_kernels_for_image(definition, image)
+        dense_kernels = self._dense_kernels_for_image(definition, image)
         spatial_padding = _spatial_padding(definition, dense_kernels[0])
 
         if selected_path == ExecutionPath.SPATIAL_DENSE:
-            return _spatial_cross_correlation(
+            return self._spatial_cross_correlation(
                 image,
                 dense_kernels,
                 boundary=selected_boundary,
                 spatial_padding=spatial_padding,
+                filter_fingerprint=definition.fingerprint(),
             )
         if selected_path == ExecutionPath.FFT:
             return self._fft_cross_correlation(
@@ -76,28 +85,54 @@ class _FilterRunner:
                 filter_fingerprint=definition.fingerprint(),
             )
         if selected_path == ExecutionPath.SPARSE_OFFSETS:
-            return _offset_cross_correlation(
+            return self._offset_cross_correlation(
                 image,
                 dense_kernels,
                 boundary=selected_boundary,
                 spatial_padding=spatial_padding,
+                filter_fingerprint=definition.fingerprint(),
             )
         if selected_path == ExecutionPath.ANTIPODAL_PAIRS:
-            return _antipodal_cross_correlation(
+            return self._antipodal_cross_correlation(
                 image,
                 dense_kernels,
                 boundary=selected_boundary,
                 spatial_padding=spatial_padding,
+                filter_fingerprint=definition.fingerprint(),
             )
         if selected_path == ExecutionPath.STENCIL:
             _require_stencil(dense_kernels)
-            return _spatial_cross_correlation(
+            return self._spatial_cross_correlation(
                 image,
                 dense_kernels,
                 boundary=selected_boundary,
                 spatial_padding=spatial_padding,
+                filter_fingerprint=definition.fingerprint(),
             )
         raise ValueError(f"unsupported execution path {selected_path}")
+
+    def _dense_kernels_for_image(
+        self,
+        definition: GradientFilterDefinition,
+        image: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        cache_key = _kernel_cache_key(
+            definition.fingerprint(),
+            dtype=image.dtype,
+            device=image.device,
+        )
+        cached = self._dense_kernel_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        kernel_x, kernel_y = definition.dense_kernels()
+        dense_kernels = (
+            kernel_x.to(device=image.device, dtype=image.dtype),
+            kernel_y.to(device=image.device, dtype=image.dtype),
+        )
+        _require_matching_dense_kernels(dense_kernels)
+        self._dense_kernel_cache[cache_key] = dense_kernels
+        return dense_kernels
 
     def _fft_cross_correlation(
         self,
@@ -173,6 +208,196 @@ class _FilterRunner:
         self._fft_kernel_cache[cache_key] = spectrum
         return spectrum
 
+    def _spatial_cross_correlation(
+        self,
+        image: torch.Tensor,
+        kernels: tuple[torch.Tensor, torch.Tensor],
+        *,
+        boundary: BoundaryCondition,
+        spatial_padding: tuple[int, int, int, int],
+        filter_fingerprint: str,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
+        batch, image_height, image_width = image.shape
+        image_channels = image.unsqueeze(1)
+        padded_image = pad_with_boundary(image_channels, spatial_padding, boundary)
+        _require_output_shape(
+            image_height=image_height,
+            image_width=image_width,
+            padded_height=int(padded_image.shape[-2]),
+            padded_width=int(padded_image.shape[-1]),
+            kernel_height=kernel_height,
+            kernel_width=kernel_width,
+        )
+        gradients = F.conv2d(
+            padded_image,
+            self._spatial_kernel_stack(kernels, filter_fingerprint=filter_fingerprint),
+        )
+        return gradients[:batch, 0].contiguous(), gradients[:batch, 1].contiguous()
+
+    def _spatial_kernel_stack(
+        self,
+        kernels: tuple[torch.Tensor, torch.Tensor],
+        *,
+        filter_fingerprint: str,
+    ) -> torch.Tensor:
+        kernel_x, _ = kernels
+        cache_key = _kernel_cache_key(
+            filter_fingerprint,
+            dtype=kernel_x.dtype,
+            device=kernel_x.device,
+        )
+        cached = self._spatial_kernel_stack_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        kernel_stack = torch.stack(kernels, dim=0).unsqueeze(1)
+        self._spatial_kernel_stack_cache[cache_key] = kernel_stack
+        return kernel_stack
+
+    def _offset_cross_correlation(
+        self,
+        image: torch.Tensor,
+        kernels: tuple[torch.Tensor, torch.Tensor],
+        *,
+        boundary: BoundaryCondition,
+        spatial_padding: tuple[int, int, int, int],
+        filter_fingerprint: str,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
+        image_height = int(image.shape[-2])
+        image_width = int(image.shape[-1])
+        padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
+        _require_output_shape(
+            image_height=image_height,
+            image_width=image_width,
+            padded_height=int(padded_image.shape[-2]),
+            padded_width=int(padded_image.shape[-1]),
+            kernel_height=kernel_height,
+            kernel_width=kernel_width,
+        )
+
+        gradient_x = torch.zeros_like(image)
+        gradient_y = torch.zeros_like(image)
+        nonzero_offsets, weights_x, weights_y = self._sparse_offsets(
+            kernels,
+            filter_fingerprint=filter_fingerprint,
+        )
+        if nonzero_offsets.numel() == 0:
+            return gradient_x, gradient_y
+        if _should_stack_sparse_offsets(nonzero_offsets, image):
+            return _stacked_offset_cross_correlation(
+                padded_image,
+                image,
+                nonzero_offsets,
+                weights_x,
+                weights_y,
+            )
+        for offset_index, row_column in enumerate(nonzero_offsets):
+            row = int(row_column[0])
+            column = int(row_column[1])
+            image_window = padded_image[:, row : row + image_height, column : column + image_width]
+            weight_x = weights_x[offset_index]
+            weight_y = weights_y[offset_index]
+            if weight_x != 0:
+                gradient_x.add_(image_window * weight_x)
+            if weight_y != 0:
+                gradient_y.add_(image_window * weight_y)
+        return gradient_x.contiguous(), gradient_y.contiguous()
+
+    def _sparse_offsets(
+        self,
+        kernels: tuple[torch.Tensor, torch.Tensor],
+        *,
+        filter_fingerprint: str,
+    ) -> _SparseOffsetCacheValue:
+        kernel_x, kernel_y = kernels
+        cache_key = _kernel_cache_key(
+            filter_fingerprint,
+            dtype=kernel_x.dtype,
+            device=kernel_x.device,
+        )
+        cached = self._sparse_offset_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        nonzero_offsets = torch.nonzero((kernel_x != 0) | (kernel_y != 0), as_tuple=False)
+        if nonzero_offsets.numel() == 0:
+            weights_x = torch.empty(0, dtype=kernel_x.dtype, device=kernel_x.device)
+            weights_y = torch.empty(0, dtype=kernel_y.dtype, device=kernel_y.device)
+        else:
+            rows = nonzero_offsets[:, 0]
+            columns = nonzero_offsets[:, 1]
+            weights_x = kernel_x[rows, columns]
+            weights_y = kernel_y[rows, columns]
+        cached_value = (nonzero_offsets, weights_x, weights_y)
+        self._sparse_offset_cache[cache_key] = cached_value
+        return cached_value
+
+    def _antipodal_cross_correlation(
+        self,
+        image: torch.Tensor,
+        kernels: tuple[torch.Tensor, torch.Tensor],
+        *,
+        boundary: BoundaryCondition,
+        spatial_padding: tuple[int, int, int, int],
+        filter_fingerprint: str,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        kernel_x, kernel_y = kernels
+        kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
+        if kernel_height % 2 == 0 or kernel_width % 2 == 0:
+            raise ValueError("antipodal_pairs path requires odd-sized kernels")
+        left, right, top, bottom = spatial_padding
+        if left != right or top != bottom:
+            raise ValueError("antipodal_pairs path requires symmetric spatial padding")
+
+        pairs_x = self._antipodal_pairs(
+            kernel_x,
+            label="x",
+            filter_fingerprint=filter_fingerprint,
+        )
+        pairs_y = self._antipodal_pairs(
+            kernel_y,
+            label="y",
+            filter_fingerprint=filter_fingerprint,
+        )
+        image_height = int(image.shape[-2])
+        image_width = int(image.shape[-1])
+        padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
+        _require_output_shape(
+            image_height=image_height,
+            image_width=image_width,
+            padded_height=int(padded_image.shape[-2]),
+            padded_width=int(padded_image.shape[-1]),
+            kernel_height=kernel_height,
+            kernel_width=kernel_width,
+        )
+        return (
+            _apply_antipodal_pairs(padded_image, image, pairs_x),
+            _apply_antipodal_pairs(padded_image, image, pairs_y),
+        )
+
+    def _antipodal_pairs(
+        self,
+        kernel: torch.Tensor,
+        *,
+        label: str,
+        filter_fingerprint: str,
+    ) -> list[_AntipodalPair]:
+        cache_key = (
+            filter_fingerprint,
+            label,
+            str(kernel.dtype),
+            str(kernel.device),
+        )
+        cached = self._antipodal_pair_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        pairs = _antipodal_pairs(kernel)
+        self._antipodal_pair_cache[cache_key] = pairs
+        return pairs
+
 
 def _resolve_execution(
     definition: GradientFilterDefinition,
@@ -224,17 +449,13 @@ def _require_dense(definition: GradientFilterDefinition, path: ExecutionPath) ->
         raise ValueError(f"{path.value} path requires dense kernels for {definition.name}")
 
 
-def _dense_kernels_for_image(
-    definition: GradientFilterDefinition,
-    image: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    kernel_x, kernel_y = definition.dense_kernels()
-    dense_kernels = (
-        kernel_x.to(device=image.device, dtype=image.dtype),
-        kernel_y.to(device=image.device, dtype=image.dtype),
-    )
-    _require_matching_dense_kernels(dense_kernels)
-    return dense_kernels
+def _kernel_cache_key(
+    filter_fingerprint: str,
+    *,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> _KernelCacheKey:
+    return (filter_fingerprint, str(dtype), str(device))
 
 
 def _require_matching_dense_kernels(kernels: tuple[torch.Tensor, torch.Tensor]) -> tuple[int, int]:
@@ -260,90 +481,20 @@ def _spatial_padding(
     return (padding_width, padding_width, padding_height, padding_height)
 
 
-def _spatial_cross_correlation(
-    image: torch.Tensor,
-    kernels: tuple[torch.Tensor, torch.Tensor],
-    *,
-    boundary: BoundaryCondition,
-    spatial_padding: tuple[int, int, int, int],
-) -> tuple[torch.Tensor, torch.Tensor]:
-    kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
-    batch, image_height, image_width = image.shape
-    image_channels = image.unsqueeze(1)
-    padded_image = pad_with_boundary(image_channels, spatial_padding, boundary)
-    _require_output_shape(
-        image_height=image_height,
-        image_width=image_width,
-        padded_height=int(padded_image.shape[-2]),
-        padded_width=int(padded_image.shape[-1]),
-        kernel_height=kernel_height,
-        kernel_width=kernel_width,
-    )
-    kernel_stack = torch.stack(kernels, dim=0).unsqueeze(1)
-    gradients = F.conv2d(padded_image, kernel_stack)
-    return gradients[:batch, 0].contiguous(), gradients[:batch, 1].contiguous()
-
-
-def _offset_cross_correlation(
-    image: torch.Tensor,
-    kernels: tuple[torch.Tensor, torch.Tensor],
-    *,
-    boundary: BoundaryCondition,
-    spatial_padding: tuple[int, int, int, int],
-) -> tuple[torch.Tensor, torch.Tensor]:
-    kernel_x, kernel_y = kernels
-    kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
-    image_height = int(image.shape[-2])
-    image_width = int(image.shape[-1])
-    padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
-    _require_output_shape(
-        image_height=image_height,
-        image_width=image_width,
-        padded_height=int(padded_image.shape[-2]),
-        padded_width=int(padded_image.shape[-1]),
-        kernel_height=kernel_height,
-        kernel_width=kernel_width,
-    )
-
-    gradient_x = torch.zeros_like(image)
-    gradient_y = torch.zeros_like(image)
-    nonzero_offsets = torch.nonzero((kernel_x != 0) | (kernel_y != 0), as_tuple=False)
-    if nonzero_offsets.numel() == 0:
-        return gradient_x, gradient_y
-    if _should_stack_sparse_offsets(nonzero_offsets, image):
-        return _stacked_offset_cross_correlation(
-            padded_image,
-            image,
-            kernel_x,
-            kernel_y,
-            nonzero_offsets,
-        )
-    for row_column in nonzero_offsets:
-        row = int(row_column[0])
-        column = int(row_column[1])
-        image_window = padded_image[:, row : row + image_height, column : column + image_width]
-        weight_x = kernel_x[row, column]
-        weight_y = kernel_y[row, column]
-        if weight_x != 0:
-            gradient_x.add_(image_window * weight_x)
-        if weight_y != 0:
-            gradient_y.add_(image_window * weight_y)
-    return gradient_x.contiguous(), gradient_y.contiguous()
-
-
 def _should_stack_sparse_offsets(
     nonzero_offsets: torch.Tensor,
     image: torch.Tensor,
 ) -> bool:
-    return int(nonzero_offsets.shape[0]) * int(image.numel()) <= _SPARSE_STACK_ELEMENT_LIMIT
+    required_bytes = int(nonzero_offsets.shape[0]) * int(image.numel()) * image.element_size()
+    return required_bytes <= _SPARSE_STACK_BYTE_LIMIT
 
 
 def _stacked_offset_cross_correlation(
     padded_image: torch.Tensor,
     image: torch.Tensor,
-    kernel_x: torch.Tensor,
-    kernel_y: torch.Tensor,
     nonzero_offsets: torch.Tensor,
+    weights_x: torch.Tensor,
+    weights_y: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     image_height = int(image.shape[-2])
     image_width = int(image.shape[-1])
@@ -358,50 +509,12 @@ def _stacked_offset_cross_correlation(
         ],
         dim=0,
     )
-    rows = nonzero_offsets[:, 0]
-    columns = nonzero_offsets[:, 1]
-    weights_x = kernel_x[rows, columns]
-    weights_y = kernel_y[rows, columns]
     gradient_x = torch.einsum("kbhw,k->bhw", windows, weights_x)
     gradient_y = torch.einsum("kbhw,k->bhw", windows, weights_y)
     return gradient_x.contiguous(), gradient_y.contiguous()
 
 
-def _antipodal_cross_correlation(
-    image: torch.Tensor,
-    kernels: tuple[torch.Tensor, torch.Tensor],
-    *,
-    boundary: BoundaryCondition,
-    spatial_padding: tuple[int, int, int, int],
-) -> tuple[torch.Tensor, torch.Tensor]:
-    kernel_x, kernel_y = kernels
-    kernel_height, kernel_width = _require_matching_dense_kernels(kernels)
-    if kernel_height % 2 == 0 or kernel_width % 2 == 0:
-        raise ValueError("antipodal_pairs path requires odd-sized kernels")
-    left, right, top, bottom = spatial_padding
-    if left != right or top != bottom:
-        raise ValueError("antipodal_pairs path requires symmetric spatial padding")
-
-    pairs_x = _antipodal_pairs(kernel_x)
-    pairs_y = _antipodal_pairs(kernel_y)
-    image_height = int(image.shape[-2])
-    image_width = int(image.shape[-1])
-    padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
-    _require_output_shape(
-        image_height=image_height,
-        image_width=image_width,
-        padded_height=int(padded_image.shape[-2]),
-        padded_width=int(padded_image.shape[-1]),
-        kernel_height=kernel_height,
-        kernel_width=kernel_width,
-    )
-    return (
-        _apply_antipodal_pairs(padded_image, image, pairs_x),
-        _apply_antipodal_pairs(padded_image, image, pairs_y),
-    )
-
-
-def _antipodal_pairs(kernel: torch.Tensor) -> list[tuple[int, int, torch.Tensor]]:
+def _antipodal_pairs(kernel: torch.Tensor) -> list[_AntipodalPair]:
     flipped = torch.flip(kernel, dims=(0, 1))
     scale = max(float(kernel.abs().max()), 1.0)
     tolerance = 1e-5 * scale
@@ -409,7 +522,7 @@ def _antipodal_pairs(kernel: torch.Tensor) -> list[tuple[int, int, torch.Tensor]
         raise ValueError("antipodal_pairs path requires odd symmetry")
 
     kernel_height, kernel_width = kernel.shape
-    pairs: list[tuple[int, int, torch.Tensor]] = []
+    pairs: list[_AntipodalPair] = []
     for row in range(kernel_height):
         for column in range(kernel_width):
             antipodal_row = kernel_height - 1 - row
@@ -425,7 +538,7 @@ def _antipodal_pairs(kernel: torch.Tensor) -> list[tuple[int, int, torch.Tensor]
 def _apply_antipodal_pairs(
     padded_image: torch.Tensor,
     image: torch.Tensor,
-    pairs: list[tuple[int, int, torch.Tensor]],
+    pairs: list[_AntipodalPair],
 ) -> torch.Tensor:
     image_height = int(image.shape[-2])
     image_width = int(image.shape[-1])

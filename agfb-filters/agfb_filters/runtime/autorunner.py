@@ -91,17 +91,19 @@ class AutoRunner:
         )
         candidates = config.candidate_paths or tuple(self.valid_paths(definition))
         results: list[BenchmarkResult] = []
+        skipped_errors: list[str] = []
         for path in candidates:
             try:
+                candidate_path = ExecutionPath(path)
                 for _ in range(config.warmup_runs):
-                    run_filter(definition, image, path=path, boundary=boundary)
+                    run_filter(definition, image, path=candidate_path, boundary=boundary)
                     _synchronize_if_needed(image)
                 timer = Timer(
                     stmt="run_filter(definition, image, path=path, boundary=boundary)",
                     globals={
                         "definition": definition,
                         "image": image,
-                        "path": path,
+                        "path": candidate_path,
                         "boundary": boundary,
                         "run_filter": run_filter,
                     },
@@ -109,18 +111,24 @@ class AutoRunner:
                 measurement = timer.blocked_autorange(min_run_time=config.min_run_time)
                 results.append(
                     BenchmarkResult(
-                        path=path,
+                        path=candidate_path,
                         median_seconds=float(measurement.median),
                         iqr_seconds=float(measurement.iqr),
                         number_per_run=int(measurement.number_per_run),
                         rounds=len(measurement.raw_times),
                     )
                 )
-            except (RuntimeError, ValueError):
+            except (RuntimeError, ValueError) as error:
+                path_label = path.value if isinstance(path, ExecutionPath) else str(path)
+                skipped_errors.append(f"{path_label}: {error}")
                 continue
 
         if not results:
-            raise ValueError(f"no benchmarkable execution paths for {definition.name}")
+            details = "; ".join(skipped_errors)
+            message = f"no benchmarkable execution paths for {definition.name}"
+            if details:
+                message = f"{message}; skipped paths: {details}"
+            raise ValueError(message)
 
         best_result = min(results, key=lambda result: result.median_seconds)
         plan = ExecutionPlan(
@@ -159,7 +167,10 @@ class AutoRunner:
         kernel_height, kernel_width = kernel_x.shape
         if kernel_height <= 3 and kernel_width <= 3:
             paths.append(ExecutionPath.STENCIL)
-        if _is_antipodal_candidate(kernel_x, definition):
+        if _is_antipodal_candidate(kernel_x, definition) and _is_antipodal_candidate(
+            kernel_y,
+            definition,
+        ):
             paths.append(ExecutionPath.ANTIPODAL_PAIRS)
         return paths
 
@@ -192,6 +203,13 @@ class AutoRunner:
         valid_paths = self.valid_paths(definition)
         if not valid_paths:
             raise ValueError(f"no valid execution paths for {definition.name}")
+
+        if ExecutionPath.SEPARABLE in valid_paths and not definition.has_dense_kernels:
+            _, derivative_kernel = definition.separable_kernels()
+            kernel_size = int(derivative_kernel.shape[0])
+            image_area = input_signature.batch * input_signature.height * input_signature.width
+            cost = image_area * kernel_size
+            return ExecutionPath.SEPARABLE, float(cost), "separable kernels are available"
 
         kernel_x, kernel_y = definition.dense_kernels()
         kernel_height, kernel_width = kernel_x.shape

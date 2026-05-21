@@ -1,6 +1,6 @@
 **AGFB Filters**
 
-`agfb-filters` provides batched gradient filters for the Analytical Gradient Filter Benchmark. Inputs are `torch.Tensor` values with shape `(batch, height, width)`. Each filter returns `(gradient_x, gradient_y)` with the same shape.
+`agfb-filters` provides batched gradient filters for the Analytical Gradient Filter Benchmark. Inputs are floating-point `torch.Tensor` values with shape `(batch, height, width)`. Each filter returns `(gradient_x, gradient_y)` with the same shape and dtype as the input.
 
 **Custom Filters**
 
@@ -61,6 +61,41 @@ Built-in filters are available through the same registry. For example, `get_filt
 Shipped filters are listed in `agfb_filters/filters/catalog.py`. To add a default filter to the package, create a module in `agfb_filters/filters/` with a definition factory such as `my_filter_definition()`. Add one `BuiltInFilterSpec` entry to the catalog with the registry name, module path, definition factory name, public exports, and smoke-test settings. The package root exports, `agfb_filters.filters` exports, built-in registry, and generic smoke tests all read from that catalog.
 
 The filter module should keep the math local and delegate execution to `run_filter`. A simple fixed separable filter can define one `_DEFINITION`, return it from `my_filter_definition()`, and expose a small function that calls `run_filter(_DEFINITION, image, path=path, boundary=boundary)`. Parameterized filters should expose a definition factory that accepts the parameters and returns a fresh `GradientFilterDefinition`.
+
+This template is the preferred starting point for a fixed separable filter.
+
+```python
+from __future__ import annotations
+
+import torch
+
+from agfb_filters.filters.definitions import define_separable_filter
+from agfb_filters.runtime.execution import BoundaryCondition, BoundaryMode, ExecutionPath, ExecutionPlan
+from agfb_filters.runtime.runner import run_filter
+
+_DEFINITION = define_separable_filter(
+    name="my_filter",
+    default_boundary=BoundaryCondition(BoundaryMode.REPLICATE),
+    smooth_kernel_1d=torch.tensor([1.0, 2.0, 1.0]) / 4.0,
+    derivative_kernel_1d=torch.tensor([-1.0, 0.0, 1.0]) / 2.0,
+    metadata={"kernel_size": 3},
+)
+
+
+def my_filter_definition():
+    return _DEFINITION
+
+
+def my_filter(
+    image: torch.Tensor,
+    *,
+    path: ExecutionPath | ExecutionPlan | str,
+    boundary: BoundaryCondition | None = None,
+):
+    return run_filter(_DEFINITION, image, path=path, boundary=boundary)
+```
+
+After creating the module, add one `BuiltInFilterSpec` entry. Use `smoke_kwargs` for parameterized filters and set `smoke_path` to a path that is valid for the generated definition. The catalog completeness tests verify that the module, factory, exports, registry entry, and smoke path are all wired correctly.
 
 **Validation**
 

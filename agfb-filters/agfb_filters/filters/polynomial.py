@@ -43,6 +43,14 @@ def build_polynomial_gradient_kernels(
         for row_power in range(degree + 1)
         for column_power in range(degree + 1 - row_power)
     ]
+    support_count = int(row_offsets.numel())
+    basis_count = len(basis_powers)
+    if support_count < basis_count:
+        raise ValueError(
+            f"{support} polynomial fit with radius {radius} and degree {degree} "
+            "is underdetermined; "
+            f"{support_count} support points cannot fit {basis_count} basis terms"
+        )
     row_powers = torch.tensor(
         [row_power for row_power, _ in basis_powers],
         dtype=torch.float64,
@@ -56,6 +64,12 @@ def build_polynomial_gradient_kernels(
     design_matrix = row_offsets[:, None].pow(row_powers) * column_offsets[:, None].pow(
         column_powers
     )
+    matrix_rank = int(torch.linalg.matrix_rank(design_matrix).item())
+    if matrix_rank < basis_count:
+        raise ValueError(
+            f"{support} polynomial fit with radius {radius} and degree {degree} is rank deficient; "
+            f"rank {matrix_rank} cannot fit {basis_count} basis terms"
+        )
 
     design_matrix_transpose = design_matrix.transpose(0, 1)
     normal_matrix = design_matrix_transpose @ design_matrix

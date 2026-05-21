@@ -1,7 +1,7 @@
 """Shared tensor conventions and helpers for AGFB filters.
 
 Input convention.
-    `image` is a `(batch, height, width)` float32 tensor on any device.
+    `image` is a `(batch, height, width)` floating-point tensor on any device.
 
 Output convention.
     Every filter returns `(gradient_x, gradient_y)` tensors with shape
@@ -13,7 +13,6 @@ Output convention.
 from __future__ import annotations
 
 import torch
-import torch.fft as torch_fft
 import torch.nn.functional as F
 
 from agfb_filters.runtime.execution import BoundaryCondition, BoundaryMode
@@ -25,8 +24,8 @@ def check_input(image: torch.Tensor) -> torch.Tensor:
         raise ValueError(
             f"filter input must be (batch, height, width), got shape {tuple(image.shape)}"
         )
-    if image.dtype != torch.float32:
-        image = image.to(torch.float32)
+    if not image.dtype.is_floating_point:
+        raise ValueError(f"filter input must use a floating-point dtype, got {image.dtype}")
     return image.contiguous()
 
 
@@ -117,95 +116,6 @@ def separable_gradient(
         boundary=boundary,
     )
     return gradient_x, gradient_y
-
-
-def dense_convolution_2d(
-    image: torch.Tensor,
-    kernel: torch.Tensor,
-    *,
-    boundary: BoundaryCondition,
-) -> torch.Tensor:
-    """Apply an odd-sized dense 2-D kernel with `F.conv2d`."""
-    kernel_height, kernel_width = kernel.shape
-    if kernel_height % 2 == 0 or kernel_width % 2 == 0:
-        raise ValueError(f"dense kernel dims must be odd, got {kernel_height}x{kernel_width}")
-    radius_height = kernel_height // 2
-    radius_width = kernel_width // 2
-    image_channels = image.unsqueeze(1)
-    padded_image = pad_with_boundary(
-        image_channels,
-        (radius_width, radius_width, radius_height, radius_height),
-        boundary,
-    )
-    convolution_kernel = kernel.view(1, 1, kernel_height, kernel_width)
-    return F.conv2d(padded_image, convolution_kernel).squeeze(1)
-
-
-def fft_cross_correlation(
-    image: torch.Tensor,
-    kernels: tuple[torch.Tensor, torch.Tensor],
-    *,
-    boundary: BoundaryCondition,
-    spatial_padding: tuple[int, int, int, int] | None = None,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Cross-correlate `image` with horizontal and vertical kernels via FFT.
-
-    Returns `(gradient_x, gradient_y)` with the same padding and output shape
-    semantics as dense spatial cross-correlation.
-    """
-    kernel_x, kernel_y = kernels
-    if kernel_x.shape != kernel_y.shape:
-        raise ValueError(f"kernel shapes must match, got {kernel_x.shape} vs {kernel_y.shape}")
-    kernel_height, kernel_width = kernel_x.shape
-    if spatial_padding is None:
-        if kernel_height % 2 == 0 or kernel_width % 2 == 0:
-            raise ValueError("even-sized kernels require explicit spatial padding")
-        spatial_padding = (
-            kernel_width // 2,
-            kernel_width // 2,
-            kernel_height // 2,
-            kernel_height // 2,
-        )
-
-    _, image_height, image_width = image.shape
-    padded_image = pad_with_boundary(image.unsqueeze(1), spatial_padding, boundary).squeeze(1)
-    padded_height = int(padded_image.shape[-2])
-    padded_width = int(padded_image.shape[-1])
-    output_height = padded_height - kernel_height + 1
-    output_width = padded_width - kernel_width + 1
-    if output_height != image_height or output_width != image_width:
-        raise ValueError(
-            "spatial padding must preserve input shape, "
-            f"got output {output_height}x{output_width} for input {image_height}x{image_width}"
-        )
-
-    fft_shape = (padded_height + kernel_height - 1, padded_width + kernel_width - 1)
-    padded_kernel_x = torch.zeros(fft_shape, dtype=image.dtype, device=image.device)
-    padded_kernel_y = torch.zeros(fft_shape, dtype=image.dtype, device=image.device)
-    padded_kernel_x[:kernel_height, :kernel_width] = torch.flip(kernel_x, dims=(0, 1))
-    padded_kernel_y[:kernel_height, :kernel_width] = torch.flip(kernel_y, dims=(0, 1))
-
-    image_spectrum = torch_fft.rfft2(padded_image, s=fft_shape)
-    gradient_x_full = torch_fft.irfft2(
-        image_spectrum * torch_fft.rfft2(padded_kernel_x, s=fft_shape),
-        s=fft_shape,
-    )
-    gradient_y_full = torch_fft.irfft2(
-        image_spectrum * torch_fft.rfft2(padded_kernel_y, s=fft_shape),
-        s=fft_shape,
-    )
-    return (
-        gradient_x_full[
-            ...,
-            kernel_height - 1 : kernel_height - 1 + image_height,
-            kernel_width - 1 : kernel_width - 1 + image_width,
-        ].contiguous(),
-        gradient_y_full[
-            ...,
-            kernel_height - 1 : kernel_height - 1 + image_height,
-            kernel_width - 1 : kernel_width - 1 + image_width,
-        ].contiguous(),
-    )
 
 
 def linear_convolution_1d(signal: torch.Tensor, kernel: torch.Tensor) -> torch.Tensor:

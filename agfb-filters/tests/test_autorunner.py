@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+import torch
+
 from agfb_filters import (
     AutoRunner,
     BenchmarkConfig,
@@ -9,6 +12,7 @@ from agfb_filters import (
     BoundaryMode,
     ExecutionPath,
     ExecutionPlan,
+    GradientFilterDefinition,
     InputSignature,
     cpgf_definition,
     sobel_definition,
@@ -130,6 +134,48 @@ def test_benchmark_best_returns_empirical_result() -> None:
     assert plan.benchmark_result.median_seconds > 0
     assert all(result.path != "auto" for result in plan.benchmark_results)
     assert plan.boundary == definition.default_boundary
+
+
+def test_benchmark_best_reports_skipped_candidate_errors() -> None:
+    runner = AutoRunner()
+    signature = InputSignature.from_values(batch=1, height=8, width=9)
+    definition = cpgf_definition(radius=2, degree=2)
+
+    with pytest.raises(ValueError, match="skipped paths: separable"):
+        runner.benchmark_best(
+            definition,
+            signature,
+            boundary=definition.default_boundary,
+            benchmark_config=BenchmarkConfig(
+                candidate_paths=(ExecutionPath.SEPARABLE,),
+                warmup_runs=0,
+                min_run_time=0.001,
+            ),
+        )
+
+
+def test_valid_paths_require_both_antipodal_kernels_to_be_odd_symmetric() -> None:
+    runner = AutoRunner()
+    definition = GradientFilterDefinition(
+        name="unit_test_mixed_symmetry",
+        default_boundary=BoundaryCondition(BoundaryMode.REPLICATE),
+        kernel_x=torch.tensor(
+            [
+                [0.0, -1.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
+        ),
+        kernel_y=torch.tensor(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+        ),
+    )
+
+    assert ExecutionPath.ANTIPODAL_PAIRS not in runner.valid_paths(definition)
 
 
 def test_different_boundaries_produce_different_cache_keys() -> None:

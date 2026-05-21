@@ -11,15 +11,16 @@ dependencies = [
     "numpy>=2.0",
 ]
 
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
     "ruff>=0.7",
     "ty>=0.0.1a8",
 ]
-
-[tool.uv]
-package = false
 
 [[tool.uv.index]]
 name = "pytorch-cu124"
@@ -42,3 +43,6 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.setuptools.packages.find]
+include = ["agfb_filters*"]

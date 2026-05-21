@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib import import_module
 from typing import Any
 
 import pytest
@@ -14,6 +15,7 @@ from agfb_filters import (
     InputSignature,
     cpgf_definition,
     get_filter_definition,
+    get_filter_registration,
     run_filter,
     shipped_filter_specs,
     sobel_definition,
@@ -33,8 +35,37 @@ def test_filters_return_gradient_pair_with_input_shape() -> None:
         )
         assert gradient_x.shape == image.shape
         assert gradient_y.shape == image.shape
-        assert gradient_x.dtype == torch.float32
-        assert gradient_y.dtype == torch.float32
+        assert gradient_x.dtype == image.dtype
+        assert gradient_y.dtype == image.dtype
+
+
+def test_shipped_filter_catalog_entries_are_complete() -> None:
+    import agfb_filters
+    import agfb_filters.filters
+
+    for spec in shipped_filter_specs():
+        module = import_module(spec.module)
+        factory = getattr(module, spec.definition_factory)
+        definition = get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
+        registration = get_filter_registration(spec.name)
+
+        assert callable(factory)
+        assert registration.name == spec.name
+        assert isinstance(definition, GradientFilterDefinition)
+        assert definition.name == spec.name
+        for export_name in spec.exports:
+            assert getattr(agfb_filters, export_name) is getattr(
+                agfb_filters.filters,
+                export_name,
+            )
+        gradient_x, gradient_y = run_filter(
+            definition,
+            torch.randn(1, 8, 9),
+            path=ExecutionPath(spec.smoke_path),
+            boundary=definition.default_boundary,
+        )
+        assert gradient_x.shape == (1, 8, 9)
+        assert gradient_y.shape == (1, 8, 9)
 
 
 def test_runner_can_apply_definition_directly_with_explicit_path() -> None:
@@ -178,6 +209,38 @@ def test_execution_plan_supplies_boundary_when_direct_boundary_is_absent() -> No
 
     assert gradient_x.shape == image.shape
     assert gradient_y.shape == image.shape
+
+
+def test_run_filter_preserves_float64_with_execution_plan() -> None:
+    image = torch.randn(1, 8, 9, dtype=torch.float64)
+    definition = sobel_definition(3)
+    plan = ExecutionPlan(
+        path=ExecutionPath.SPATIAL_DENSE,
+        input_signature=InputSignature.from_tensor(image),
+        boundary=definition.default_boundary,
+        filter_fingerprint=definition.fingerprint(),
+        reason="test plan",
+    )
+
+    gradient_x, gradient_y = run_filter(definition, image, path=plan)
+
+    assert gradient_x.dtype == torch.float64
+    assert gradient_y.dtype == torch.float64
+    assert gradient_x.shape == image.shape
+    assert gradient_y.shape == image.shape
+
+
+def test_run_filter_rejects_integer_inputs() -> None:
+    image = torch.ones(1, 8, 9, dtype=torch.int64)
+    definition = sobel_definition(3)
+
+    with pytest.raises(ValueError, match="floating-point dtype"):
+        run_filter(
+            definition,
+            image,
+            path=ExecutionPath.SPATIAL_DENSE,
+            boundary=definition.default_boundary,
+        )
 
 
 def test_constant_boundary_value_changes_edge_output() -> None:

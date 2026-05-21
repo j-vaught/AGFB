@@ -8,6 +8,7 @@ from agfb_filters import (
     BoundaryMode,
     ExecutionPath,
     GradientFilterDefinition,
+    cpgf_definition,
     define_dense_filter,
     define_separable_filter,
     get_filter_definition,
@@ -112,3 +113,8 @@ def test_custom_filter_validation_requires_padding_for_even_dense_kernels() -> N
             kernel_x=[[-1.0, 1.0], [-1.0, 1.0]],
             kernel_y=[[-1.0, -1.0], [1.0, 1.0]],
         )
+
+
+def test_polynomial_filter_validation_rejects_underdetermined_fits() -> None:
+    with pytest.raises(ValueError, match="underdetermined"):
+        cpgf_definition(radius=1, degree=2)
