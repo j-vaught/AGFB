@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
+from importlib import import_module
 from typing import Any
 
+from agfb_filters.filters.catalog import shipped_filter_specs
 from agfb_filters.filters.definitions import GradientFilterDefinition
 
 DefinitionFactory = Callable[..., GradientFilterDefinition]
@@ -108,34 +111,10 @@ def _ensure_builtin_filters() -> None:
     if _BUILTINS_REGISTERED:
         return
 
-    from agfb_filters.filters.central_difference import central_difference_definition
-    from agfb_filters.filters.cpgf import cpgf_definition
-    from agfb_filters.filters.derivative_of_gaussian import derivative_of_gaussian_definition
-    from agfb_filters.filters.farid_simoncelli import farid_simoncelli_5_definition
-    from agfb_filters.filters.freeman_adelson import freeman_adelson_g1_definition
-    from agfb_filters.filters.prewitt import prewitt_3_definition
-    from agfb_filters.filters.roberts import roberts_definition
-    from agfb_filters.filters.savitzky_golay import savitzky_golay_definition
-    from agfb_filters.filters.scharr import scharr_3_definition
-    from agfb_filters.filters.sobel import sobel_definition
-
+    for spec in shipped_filter_specs():
+        module = import_module(spec.module)
+        factory = getattr(module, spec.definition_factory)
+        if spec.registry_kwargs:
+            factory = partial(factory, **dict(spec.registry_kwargs))
+        _store_filter(spec.name, factory, description=spec.description)
     _BUILTINS_REGISTERED = True
-    for name, factory, description in (
-        ("central_difference", central_difference_definition, "central finite difference"),
-        ("farid_simoncelli_5", farid_simoncelli_5_definition, "Farid-Simoncelli 5-tap"),
-        ("prewitt_3", prewitt_3_definition, "Prewitt 3-tap"),
-        ("roberts", roberts_definition, "Roberts cross"),
-        ("scharr_3", scharr_3_definition, "Scharr 3-tap"),
-        ("sobel_3", lambda: sobel_definition(3), "Sobel 3-tap"),
-        ("sobel_5", lambda: sobel_definition(5), "Sobel 5-tap"),
-        ("sobel_7", lambda: sobel_definition(7), "Sobel 7-tap"),
-        ("cpgf", cpgf_definition, "circular polynomial gradient filter"),
-        (
-            "derivative_of_gaussian",
-            derivative_of_gaussian_definition,
-            "first derivative of Gaussian",
-        ),
-        ("freeman_adelson_g1", freeman_adelson_g1_definition, "Freeman-Adelson G1"),
-        ("savitzky_golay", savitzky_golay_definition, "Savitzky-Golay square fit"),
-    ):
-        _store_filter(name, factory, description=description)

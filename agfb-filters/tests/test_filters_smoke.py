@@ -6,64 +6,29 @@ import pytest
 import torch
 
 from agfb_filters import (
-    CPGF,
     BoundaryCondition,
     BoundaryMode,
-    DerivativeOfGaussian,
     ExecutionPath,
     ExecutionPlan,
-    FreemanAdelsonG1,
     GradientFilterDefinition,
     InputSignature,
-    SavitzkyGolay,
-    central_difference,
-    central_difference_definition,
     cpgf_definition,
-    farid_simoncelli_5,
-    farid_simoncelli_5_definition,
-    prewitt_3,
-    prewitt_3_definition,
-    roberts,
-    roberts_definition,
+    get_filter_definition,
     run_filter,
-    scharr_3,
-    scharr_3_definition,
-    sobel_3,
-    sobel_5,
-    sobel_7,
+    shipped_filter_specs,
     sobel_definition,
 )
 
 
 def test_filters_return_gradient_pair_with_input_shape() -> None:
     image = torch.randn(2, 8, 9)
-    cpgf = CPGF(radius=2, degree=2)
-    derivative_of_gaussian = DerivativeOfGaussian(sigma=1.0)
-    freeman_adelson = FreemanAdelsonG1(sigma=1.0)
-    savitzky_golay = SavitzkyGolay(radius=2, degree=2)
-    filters = [
-        (central_difference, central_difference_definition(), ExecutionPath.SEPARABLE),
-        (farid_simoncelli_5, farid_simoncelli_5_definition(), ExecutionPath.SEPARABLE),
-        (prewitt_3, prewitt_3_definition(), ExecutionPath.SEPARABLE),
-        (roberts, roberts_definition(), ExecutionPath.STENCIL),
-        (scharr_3, scharr_3_definition(), ExecutionPath.SEPARABLE),
-        (sobel_3, sobel_definition(3), ExecutionPath.SEPARABLE),
-        (sobel_5, sobel_definition(5), ExecutionPath.SEPARABLE),
-        (sobel_7, sobel_definition(7), ExecutionPath.SEPARABLE),
-        (cpgf.apply, cpgf.definition, ExecutionPath.SPARSE_OFFSETS),
-        (
-            derivative_of_gaussian.apply,
-            derivative_of_gaussian.definition,
-            ExecutionPath.SEPARABLE,
-        ),
-        (freeman_adelson.apply, freeman_adelson.definition, ExecutionPath.SEPARABLE),
-        (savitzky_golay.apply, savitzky_golay.definition, ExecutionPath.SPATIAL_DENSE),
-    ]
 
-    for apply_filter, definition, path in filters:
-        gradient_x, gradient_y = apply_filter(
+    for spec in shipped_filter_specs():
+        definition = get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
+        gradient_x, gradient_y = run_filter(
+            definition,
             image,
-            path=path,
+            path=ExecutionPath(spec.smoke_path),
             boundary=definition.default_boundary,
         )
         assert gradient_x.shape == image.shape
@@ -92,6 +57,15 @@ def test_split_package_import_paths_are_available() -> None:
 
     assert filters_sobel_definition is sobel_definition
     assert runtime_run_filter is run_filter
+
+
+def test_shipped_filter_catalog_exports_are_available_from_public_modules() -> None:
+    import agfb_filters
+    import agfb_filters.filters
+
+    for spec in shipped_filter_specs():
+        for export_name in spec.exports:
+            assert getattr(agfb_filters, export_name) is getattr(agfb_filters.filters, export_name)
 
 
 def test_dense_runner_paths_match_for_cpgf_definition() -> None:

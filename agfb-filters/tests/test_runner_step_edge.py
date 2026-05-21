@@ -7,17 +7,9 @@ from agfb_filters import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    central_difference_definition,
-    cpgf_definition,
-    derivative_of_gaussian_definition,
-    farid_simoncelli_5_definition,
-    freeman_adelson_g1_definition,
-    prewitt_3_definition,
-    roberts_definition,
+    get_filter_definition,
     run_filter,
-    savitzky_golay_definition,
-    scharr_3_definition,
-    sobel_definition,
+    shipped_filter_specs,
 )
 
 
@@ -41,18 +33,8 @@ def _boundary_conditions() -> tuple[BoundaryCondition, ...]:
 
 def _definitions():
     return [
-        central_difference_definition(),
-        farid_simoncelli_5_definition(),
-        prewitt_3_definition(),
-        roberts_definition(),
-        scharr_3_definition(),
-        sobel_definition(3),
-        sobel_definition(5),
-        sobel_definition(7),
-        cpgf_definition(radius=2, degree=2),
-        derivative_of_gaussian_definition(sigma=1.0),
-        freeman_adelson_g1_definition(sigma=1.0),
-        savitzky_golay_definition(radius=2, degree=2),
+        get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
+        for spec in shipped_filter_specs()
     ]
 
 

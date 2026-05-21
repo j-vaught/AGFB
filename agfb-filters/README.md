@@ -56,6 +56,12 @@ definition = get_filter_definition("my_separable_difference", scale=2.0)
 
 Built-in filters are available through the same registry. For example, `get_filter_definition("sobel_3")` returns the Sobel 3-tap definition, while parameterized entries such as `get_filter_definition("cpgf", radius=2, degree=2)` construct generated filters.
 
+**Adding Shipped Filters**
+
+Shipped filters are listed in `agfb_filters/filters/catalog.py`. To add a default filter to the package, create a module in `agfb_filters/filters/` with a definition factory such as `my_filter_definition()`. Add one `BuiltInFilterSpec` entry to the catalog with the registry name, module path, definition factory name, public exports, and smoke-test settings. The package root exports, `agfb_filters.filters` exports, built-in registry, and generic smoke tests all read from that catalog.
+
+The filter module should keep the math local and delegate execution to `run_filter`. A simple fixed separable filter can define one `_DEFINITION`, return it from `my_filter_definition()`, and expose a small function that calls `run_filter(_DEFINITION, image, path=path, boundary=boundary)`. Parameterized filters should expose a definition factory that accepts the parameters and returns a fresh `GradientFilterDefinition`.
+
 **Validation**
 
 Custom definitions are validated when they are created. Dense kernels must be finite floating-point tensors with matching two-dimensional shapes. Even-sized dense kernels require explicit `spatial_padding` because the runner must know how to preserve the input shape. Separable kernels must be one-dimensional, finite, floating-point, and odd length.
