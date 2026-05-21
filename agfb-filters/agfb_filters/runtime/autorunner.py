@@ -193,34 +193,42 @@ class AutoRunner:
         if not valid_paths:
             raise ValueError(f"no valid execution paths for {definition.name}")
 
-        if ExecutionPath.SEPARABLE in valid_paths:
-            _, derivative_kernel = definition.separable_kernels()
-            kernel_size = int(derivative_kernel.shape[0])
-            cost = (
-                input_signature.batch * input_signature.height * input_signature.width * kernel_size
-            )
-            return ExecutionPath.SEPARABLE, float(cost), "separable kernels are available"
-
         kernel_x, kernel_y = definition.dense_kernels()
         kernel_height, kernel_width = kernel_x.shape
         kernel_area = int(kernel_height * kernel_width)
-        image_area = input_signature.height * input_signature.width
+        image_area = input_signature.batch * input_signature.height * input_signature.width
         nonzero_count = int(torch.count_nonzero((kernel_x != 0) | (kernel_y != 0)).item())
         zero_fraction = 1.0 - nonzero_count / kernel_area
 
-        if ExecutionPath.STENCIL in valid_paths:
-            cost = input_signature.batch * image_area * max(nonzero_count, 1)
-            return ExecutionPath.STENCIL, float(cost), "tiny stencil kernel"
-        if zero_fraction >= 0.15 and ExecutionPath.SPARSE_OFFSETS in valid_paths:
-            cost = input_signature.batch * image_area * max(nonzero_count, 1)
-            return ExecutionPath.SPARSE_OFFSETS, float(cost), "sparse support"
-        if max(kernel_height, kernel_width) >= 11 and ExecutionPath.FFT in valid_paths:
-            cost = input_signature.batch * image_area * float(max(kernel_height, kernel_width))
+        if max(kernel_height, kernel_width) <= 3 and ExecutionPath.SPATIAL_DENSE in valid_paths:
+            cost = image_area * kernel_area
+            return ExecutionPath.SPATIAL_DENSE, float(cost), "tiny dense kernel"
+        if ExecutionPath.SEPARABLE in valid_paths:
+            _, derivative_kernel = definition.separable_kernels()
+            kernel_size = int(derivative_kernel.shape[0])
+            cost = image_area * kernel_size
+            return ExecutionPath.SEPARABLE, float(cost), "separable kernels are available"
+        if max(kernel_height, kernel_width) >= 9 and ExecutionPath.FFT in valid_paths:
+            cost = image_area * float(max(kernel_height, kernel_width))
             return ExecutionPath.FFT, float(cost), "large dense kernel"
-        if ExecutionPath.ANTIPODAL_PAIRS in valid_paths:
-            cost = input_signature.batch * image_area * max(nonzero_count // 2, 1)
-            return ExecutionPath.ANTIPODAL_PAIRS, float(cost), "odd-symmetric derivative kernel"
-        cost = input_signature.batch * image_area * kernel_area
+        if (
+            ExecutionPath.ANTIPODAL_PAIRS in valid_paths
+            and kernel_area >= 25
+            and image_area >= 65_536
+        ):
+            cost = image_area * max(nonzero_count // 2, 1)
+            return ExecutionPath.ANTIPODAL_PAIRS, float(cost), "large odd-symmetric kernel"
+        if ExecutionPath.STENCIL in valid_paths:
+            cost = image_area * kernel_area
+            return ExecutionPath.STENCIL, float(cost), "tiny stencil kernel"
+        if (
+            zero_fraction >= 0.50
+            and image_area >= 65_536
+            and ExecutionPath.SPARSE_OFFSETS in valid_paths
+        ):
+            cost = image_area * max(nonzero_count, 1)
+            return ExecutionPath.SPARSE_OFFSETS, float(cost), "sparse support"
+        cost = image_area * kernel_area
         return ExecutionPath.SPATIAL_DENSE, float(cost), "dense spatial reference"
 
     def _load_json_cache(self) -> None:

@@ -32,6 +32,7 @@ class GradientFilterDefinition:
     support: str = "dense"
     symmetry: str | None = None
     metadata: Mapping[str, MetadataValue] = field(default_factory=dict)
+    _fingerprint: str = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.default_boundary, BoundaryCondition):
@@ -65,6 +66,7 @@ class GradientFilterDefinition:
             object.__setattr__(self, "spatial_padding", spatial_padding)
         if self.has_dense_kernels:
             _validate_dense_padding(self.kernel_x, self.spatial_padding)
+        object.__setattr__(self, "_fingerprint", _definition_fingerprint(self))
 
     @property
     def has_dense_kernels(self) -> bool:
@@ -86,25 +88,7 @@ class GradientFilterDefinition:
 
     def fingerprint(self) -> str:
         """Return a stable fingerprint of the filter structure and weights."""
-        hasher = hashlib.sha256()
-        payload = {
-            "name": self.name,
-            "default_boundary": self.default_boundary.to_json_dict(),
-            "spatial_padding": self.spatial_padding,
-            "support": self.support,
-            "symmetry": self.symmetry,
-            "metadata": dict(sorted(self.metadata.items())),
-        }
-        hasher.update(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
-        for label, tensor in (
-            ("kernel_x", self.kernel_x),
-            ("kernel_y", self.kernel_y),
-            ("smooth_kernel_1d", self.smooth_kernel_1d),
-            ("derivative_kernel_1d", self.derivative_kernel_1d),
-        ):
-            if tensor is not None:
-                _update_tensor_hash(hasher, label, tensor)
-        return hasher.hexdigest()
+        return self._fingerprint
 
 
 def define_dense_filter(
@@ -214,6 +198,28 @@ def _update_tensor_hash(
     hasher.update(str(tensor.dtype).encode("utf-8"))
     cpu_tensor = tensor.detach().to(device="cpu").contiguous()
     hasher.update(cpu_tensor.numpy().tobytes())
+
+
+def _definition_fingerprint(definition: GradientFilterDefinition) -> str:
+    hasher = hashlib.sha256()
+    payload = {
+        "name": definition.name,
+        "default_boundary": definition.default_boundary.to_json_dict(),
+        "spatial_padding": definition.spatial_padding,
+        "support": definition.support,
+        "symmetry": definition.symmetry,
+        "metadata": dict(sorted(definition.metadata.items())),
+    }
+    hasher.update(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    for label, tensor in (
+        ("kernel_x", definition.kernel_x),
+        ("kernel_y", definition.kernel_y),
+        ("smooth_kernel_1d", definition.smooth_kernel_1d),
+        ("derivative_kernel_1d", definition.derivative_kernel_1d),
+    ):
+        if tensor is not None:
+            _update_tensor_hash(hasher, label, tensor)
+    return hasher.hexdigest()
 
 
 def _as_tensor(

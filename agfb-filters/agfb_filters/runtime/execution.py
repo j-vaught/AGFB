@@ -8,7 +8,7 @@ from typing import Any
 
 import torch
 
-PATH_VERSION = "1"
+PATH_VERSION = "2"
 
 
 class ExecutionPath(StrEnum):

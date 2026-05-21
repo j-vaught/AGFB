@@ -16,6 +16,8 @@ from agfb_filters.runtime.execution import (
 )
 from agfb_filters.runtime.tensor_ops import check_input, pad_with_boundary, separable_gradient
 
+_SPARSE_STACK_ELEMENT_LIMIT = 32_000_000
+
 
 def run_filter(
     definition: GradientFilterDefinition,
@@ -89,7 +91,7 @@ class _FilterRunner:
             )
         if selected_path == ExecutionPath.STENCIL:
             _require_stencil(dense_kernels)
-            return _offset_cross_correlation(
+            return _spatial_cross_correlation(
                 image,
                 dense_kernels,
                 boundary=selected_boundary,
@@ -306,6 +308,16 @@ def _offset_cross_correlation(
     gradient_x = torch.zeros_like(image)
     gradient_y = torch.zeros_like(image)
     nonzero_offsets = torch.nonzero((kernel_x != 0) | (kernel_y != 0), as_tuple=False)
+    if nonzero_offsets.numel() == 0:
+        return gradient_x, gradient_y
+    if _should_stack_sparse_offsets(nonzero_offsets, image):
+        return _stacked_offset_cross_correlation(
+            padded_image,
+            image,
+            kernel_x,
+            kernel_y,
+            nonzero_offsets,
+        )
     for row_column in nonzero_offsets:
         row = int(row_column[0])
         column = int(row_column[1])
@@ -313,9 +325,45 @@ def _offset_cross_correlation(
         weight_x = kernel_x[row, column]
         weight_y = kernel_y[row, column]
         if weight_x != 0:
-            gradient_x = gradient_x + image_window * weight_x
+            gradient_x.add_(image_window * weight_x)
         if weight_y != 0:
-            gradient_y = gradient_y + image_window * weight_y
+            gradient_y.add_(image_window * weight_y)
+    return gradient_x.contiguous(), gradient_y.contiguous()
+
+
+def _should_stack_sparse_offsets(
+    nonzero_offsets: torch.Tensor,
+    image: torch.Tensor,
+) -> bool:
+    return int(nonzero_offsets.shape[0]) * int(image.numel()) <= _SPARSE_STACK_ELEMENT_LIMIT
+
+
+def _stacked_offset_cross_correlation(
+    padded_image: torch.Tensor,
+    image: torch.Tensor,
+    kernel_x: torch.Tensor,
+    kernel_y: torch.Tensor,
+    nonzero_offsets: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    image_height = int(image.shape[-2])
+    image_width = int(image.shape[-1])
+    windows = torch.stack(
+        [
+            padded_image[
+                :,
+                int(row) : int(row) + image_height,
+                int(column) : int(column) + image_width,
+            ]
+            for row, column in nonzero_offsets
+        ],
+        dim=0,
+    )
+    rows = nonzero_offsets[:, 0]
+    columns = nonzero_offsets[:, 1]
+    weights_x = kernel_x[rows, columns]
+    weights_y = kernel_y[rows, columns]
+    gradient_x = torch.einsum("kbhw,k->bhw", windows, weights_x)
+    gradient_y = torch.einsum("kbhw,k->bhw", windows, weights_y)
     return gradient_x.contiguous(), gradient_y.contiguous()
 
 
@@ -393,7 +441,7 @@ def _apply_antipodal_pairs(
             antipodal_row : antipodal_row + image_height,
             antipodal_column : antipodal_column + image_width,
         ]
-        output = output + weight * (positive - negative)
+        output.add_((positive - negative) * weight)
     return output.contiguous()
 
 

@@ -26,9 +26,44 @@ def test_estimate_best_returns_concrete_path() -> None:
     )
 
     assert isinstance(plan.path, ExecutionPath)
-    assert plan.path == ExecutionPath.SEPARABLE
+    assert plan.path == ExecutionPath.SPATIAL_DENSE
     assert plan.path.value != "auto"
     assert plan.boundary == definition.default_boundary
+
+
+def test_estimate_best_keeps_wider_separable_filters_on_separable_path() -> None:
+    runner = AutoRunner()
+    signature = InputSignature.from_values(batch=8, height=256, width=256)
+    definition = sobel_definition(5)
+
+    plan = runner.estimate_best(
+        definition,
+        signature,
+        boundary=definition.default_boundary,
+    )
+
+    assert plan.path == ExecutionPath.SEPARABLE
+
+
+def test_estimate_best_uses_large_dense_kernel_paths() -> None:
+    runner = AutoRunner()
+    large_signature = InputSignature.from_values(batch=8, height=256, width=256)
+    small_signature = InputSignature.from_values(batch=1, height=106, width=160)
+    definition = cpgf_definition(radius=2, degree=2)
+
+    large_cpgf_plan = runner.estimate_best(
+        definition,
+        large_signature,
+        boundary=definition.default_boundary,
+    )
+    small_cpgf_plan = runner.estimate_best(
+        definition,
+        small_signature,
+        boundary=definition.default_boundary,
+    )
+
+    assert large_cpgf_plan.path == ExecutionPath.ANTIPODAL_PAIRS
+    assert small_cpgf_plan.path == ExecutionPath.SPATIAL_DENSE
 
 
 def test_cached_best_stores_memory_cache_on_miss_and_hit() -> None:
