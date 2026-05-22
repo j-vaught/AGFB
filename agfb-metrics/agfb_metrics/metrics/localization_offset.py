@@ -99,7 +99,7 @@ def localization_offset(
         t_filter = _peak_positions(f_prof, t, step)
         if truth_profiles is not None:
             t_truth = _peak_positions(truth_profiles[i], t, step)
-            out[i] = float((t_filter - t_truth).abs().mean())
+            out[i] = (t_filter - t_truth).abs().mean()
         else:
-            out[i] = float(t_filter.abs().mean())
+            out[i] = t_filter.abs().mean()
     return out

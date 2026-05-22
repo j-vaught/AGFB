@@ -32,6 +32,74 @@ def magnitude(g_x: torch.Tensor, g_y: torch.Tensor) -> torch.Tensor:
     return torch.sqrt(g_x * g_x + g_y * g_y)
 
 
+def masked_count_per_image(mask: torch.Tensor) -> torch.Tensor:
+    """Count true mask values per image as `(B,)` float32 on the mask device."""
+    if mask.ndim != 3:
+        raise ValueError(f"mask must be (B, H, W); got {tuple(mask.shape)}")
+    return mask.reshape(mask.shape[0], -1).sum(dim=1).to(torch.float32)
+
+
+def masked_sum_per_image(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Sum masked values per image as `(B,)` float32 on the values device."""
+    if values.shape != mask.shape:
+        raise ValueError(f"values {values.shape} and mask {mask.shape} must match")
+    masked = torch.where(mask, values, torch.zeros_like(values))
+    return masked.reshape(values.shape[0], -1).sum(dim=1)
+
+
+def masked_mean_per_image(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Mean of masked values per image; empty masks yield NaN."""
+    count = masked_count_per_image(mask)
+    total = masked_sum_per_image(values, mask)
+    mean = total / count.clamp_min(1.0)
+    return torch.where(count > 0, mean, torch.full_like(mean, float("nan")))
+
+
+def masked_std_per_image(
+    values: torch.Tensor,
+    mask: torch.Tensor,
+    *,
+    min_count: int = 1,
+) -> torch.Tensor:
+    """Population std of masked values per image; small masks yield NaN."""
+    count = masked_count_per_image(mask)
+    mean = masked_sum_per_image(values, mask) / count.clamp_min(1.0)
+    centered_sq = torch.where(mask, (values - mean.view(-1, 1, 1)) ** 2, torch.zeros_like(values))
+    var = centered_sq.reshape(values.shape[0], -1).sum(dim=1) / count.clamp_min(1.0)
+    std = torch.sqrt(var)
+    return torch.where(count >= float(min_count), std, torch.full_like(std, float("nan")))
+
+
+def masked_quantile_per_image(
+    values: torch.Tensor,
+    mask: torch.Tensor,
+    q: float,
+) -> torch.Tensor:
+    """Linear-interpolated quantile of masked values per image; empty masks yield NaN."""
+    if values.shape != mask.shape:
+        raise ValueError(f"values {values.shape} and mask {mask.shape} must match")
+    if not 0.0 < q < 1.0:
+        raise ValueError(f"q must be in (0, 1); got {q}")
+
+    B = values.shape[0]
+    flat_values = values.reshape(B, -1)
+    flat_mask = mask.reshape(B, -1)
+    count = flat_mask.sum(dim=1)
+    sorted_values = flat_values.masked_fill(~flat_mask, float("inf")).sort(dim=1).values
+
+    safe_count = count.clamp_min(1).to(torch.float32)
+    pos = q * (safe_count - 1.0)
+    lower = torch.floor(pos).to(torch.long)
+    upper = torch.ceil(pos).to(torch.long)
+    frac = (pos - lower.to(torch.float32)).to(values.dtype)
+    rows = torch.arange(B, device=values.device)
+
+    lower_values = sorted_values[rows, lower]
+    upper_values = sorted_values[rows, upper]
+    quantile = lower_values + (upper_values - lower_values) * frac
+    return torch.where(count > 0, quantile, torch.full_like(quantile, float("nan")))
+
+
 def masks(
     g_x_t: torch.Tensor,
     g_y_t: torch.Tensor,
@@ -136,26 +204,3 @@ def ridge_mask_from_truth(
     mag_minus = _sample_neighbor(-1.0)
     is_local_max = (mag >= mag_plus) & (mag >= mag_minus) & (mag > 0)
     return signal_mask & is_local_max
-
-
-def masked_reduce_per_image(
-    values: torch.Tensor,
-    mask: torch.Tensor,
-    reducer,
-) -> torch.Tensor:
-    """Apply `reducer(masked_values_1d)` per image; return (B,) float32 tensor.
-
-    `reducer` is called once per image with a flat 1-D tensor of the masked
-    values. Images whose mask is empty yield NaN so the sweep aggregator can
-    detect them rather than silently producing 0/0.
-    """
-    if values.shape != mask.shape:
-        raise ValueError(f"values {values.shape} and mask {mask.shape} must match")
-    out = torch.empty(values.shape[0], dtype=torch.float32, device=values.device)
-    for i in range(values.shape[0]):
-        m = mask[i]
-        if not bool(m.any()):
-            out[i] = float("nan")
-            continue
-        out[i] = float(reducer(values[i][m]))
-    return out

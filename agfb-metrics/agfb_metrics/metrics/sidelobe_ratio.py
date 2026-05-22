@@ -18,45 +18,40 @@ their `r_p` should be. Images with no usable signal pixels return NaN.
 
 from __future__ import annotations
 
-import math
-
 import torch
 
 from agfb_metrics.metrics._cross_edge_profile import cross_edge_profile
 from agfb_metrics.metrics.base import check_grad_pair, magnitude
 
 
-def _main_lobe_bounds(prof: torch.Tensor, k_peak: int) -> tuple[int, int]:
-    """Return (k_left, k_right) inclusive bounds of the main lobe, defined as
-    the contiguous region around `k_peak` extending outward until the profile
-    first reaches a local minimum (i.e. starts rising again)."""
-    K = prof.shape[0]
-    k_left = k_peak
-    while k_left > 0 and prof[k_left - 1].item() <= prof[k_left].item():
-        k_left -= 1
-    k_right = k_peak
-    while k_right < K - 1 and prof[k_right + 1].item() <= prof[k_right].item():
-        k_right += 1
-    return k_left, k_right
+def _sidelobe_ratios(prof: torch.Tensor) -> torch.Tensor:
+    """Vectorized side-lobe ratios for `(N, K)` profiles; unusable rows yield NaN."""
+    N, K = prof.shape
+    if N == 0:
+        return torch.empty((0,), dtype=torch.float32, device=prof.device)
 
+    idx = torch.arange(K, device=prof.device)
+    peak, k_peak = torch.max(prof, dim=1)
 
-def _sidelobe_ratio_one_profile(prof: torch.Tensor) -> float | None:
-    K = prof.shape[0]
-    k_peak = int(torch.argmax(prof).item())
-    peak = float(prof[k_peak].item())
-    if peak <= 0.0:
-        return None
-    k_left, k_right = _main_lobe_bounds(prof, k_peak)
-    if k_left == 0 and k_right == K - 1:
-        return None  # main lobe fills the window; no side-lobe to measure
-    outside_max = 0.0
-    if k_left > 0:
-        outside_max = max(outside_max, float(prof[:k_left].max().item()))
-    if k_right < K - 1:
-        outside_max = max(outside_max, float(prof[k_right + 1 :].max().item()))
-    if outside_max <= 0.0:
-        return None  # nothing outside the main lobe; r=0 -> -inf, skip
-    return outside_max / peak
+    left_idx = idx[1:].unsqueeze(0)
+    left_violation = prof[:, :-1] > prof[:, 1:]
+    left_violation = left_violation & (left_idx <= k_peak.unsqueeze(1))
+    left_bound = torch.where(left_violation, left_idx, torch.zeros_like(left_idx)).max(dim=1).values
+
+    right_idx = idx[:-1].unsqueeze(0)
+    right_violation = prof[:, 1:] > prof[:, :-1]
+    right_violation = right_violation & (right_idx >= k_peak.unsqueeze(1))
+    right_bound = torch.where(right_violation, right_idx, torch.full_like(right_idx, K - 1))
+    right_bound = right_bound.min(dim=1).values
+
+    outside = (idx.unsqueeze(0) < left_bound.unsqueeze(1)) | (
+        idx.unsqueeze(0) > right_bound.unsqueeze(1)
+    )
+    outside_values = torch.where(outside, prof, torch.full_like(prof, -torch.inf))
+    outside_max = outside_values.max(dim=1).values
+    ratio = outside_max / peak.clamp_min(1e-30)
+    valid = (peak > 0.0) & outside.any(dim=1) & (outside_max > 0.0)
+    return torch.where(valid, ratio, torch.full_like(ratio, float("nan")))
 
 
 def sidelobe_ratio(
@@ -81,13 +76,13 @@ def sidelobe_ratio(
         if prof.shape[0] == 0:
             out[i] = float("nan")
             continue
-        ratios: list[float] = []
-        for n in range(prof.shape[0]):
-            r = _sidelobe_ratio_one_profile(prof[n])
-            if r is not None:
-                ratios.append(r)
-        if not ratios:
-            out[i] = float("nan")
-            continue
-        out[i] = float(20.0 * sum(math.log10(r) for r in ratios) / len(ratios))
+        ratios = _sidelobe_ratios(prof)
+        valid = ~torch.isnan(ratios)
+        log_ratios = torch.where(valid, torch.log10(ratios), torch.zeros_like(ratios))
+        count = valid.sum()
+        out[i] = torch.where(
+            count > 0,
+            20.0 * log_ratios.sum() / count.clamp_min(1),
+            torch.tensor(float("nan"), device=prof.device),
+        )
     return out

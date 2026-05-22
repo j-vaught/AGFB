@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import torch
 
-from agfb_metrics.metrics.base import check_grad_pair, magnitude
+from agfb_metrics.metrics.base import check_grad_pair, magnitude, masked_std_per_image
 
 
 def noise_gain(
@@ -35,12 +35,4 @@ def noise_gain(
 
     mag_f = magnitude(g_x, g_y)
 
-    B = g_x.shape[0]
-    out = torch.empty(B, dtype=torch.float32, device=g_x.device)
-    for i in range(B):
-        m = flat_mask[i]
-        if int(m.sum()) < 2:
-            out[i] = float("nan")
-            continue
-        out[i] = float(torch.std(mag_f[i][m], unbiased=False) / sigma_n)
-    return out
+    return masked_std_per_image(mag_f, flat_mask, min_count=2) / sigma_n

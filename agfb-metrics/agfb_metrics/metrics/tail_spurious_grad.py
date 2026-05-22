@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import torch
 
-from agfb_metrics.metrics.base import check_grad_pair, magnitude
+from agfb_metrics.metrics.base import check_grad_pair, magnitude, masked_quantile_per_image
 
 
 def tail_spurious_grad(
@@ -32,12 +32,4 @@ def tail_spurious_grad(
 
     mag_f = magnitude(g_x, g_y)
 
-    B = g_x.shape[0]
-    out = torch.empty(B, dtype=torch.float32, device=g_x.device)
-    for i in range(B):
-        m = flat_mask[i]
-        if not bool(m.any()):
-            out[i] = float("nan")
-            continue
-        out[i] = float(torch.quantile(mag_f[i][m], q))
-    return out
+    return masked_quantile_per_image(mag_f, flat_mask, q)

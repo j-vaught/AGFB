@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import torch
 
-from agfb_metrics.metrics.base import check_grad_pair
+from agfb_metrics.metrics.base import check_grad_pair, masked_quantile_per_image
 
 
 def tail_vector_error(
@@ -35,12 +35,4 @@ def tail_vector_error(
 
     err_mag = torch.sqrt((g_x - g_x_t) ** 2 + (g_y - g_y_t) ** 2)
 
-    B = g_x.shape[0]
-    out = torch.empty(B, dtype=torch.float32, device=g_x.device)
-    for i in range(B):
-        m = signal_mask[i]
-        if not bool(m.any()):
-            out[i] = float("nan")
-            continue
-        out[i] = float(torch.quantile(err_mag[i][m], q))
-    return out
+    return masked_quantile_per_image(err_mag, signal_mask, q)

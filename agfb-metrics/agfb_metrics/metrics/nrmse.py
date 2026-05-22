@@ -20,7 +20,13 @@ from __future__ import annotations
 
 import torch
 
-from agfb_metrics.metrics.base import check_grad_pair, magnitude
+from agfb_metrics.metrics.base import (
+    check_grad_pair,
+    magnitude,
+    masked_count_per_image,
+    masked_mean_per_image,
+    masked_sum_per_image,
+)
 
 
 def nrmse(
@@ -38,14 +44,8 @@ def nrmse(
     err_sq = (g_x - g_x_t) ** 2 + (g_y - g_y_t) ** 2
     mag_true = magnitude(g_x_t, g_y_t)
 
-    B = g_x.shape[0]
-    out = torch.empty(B, dtype=torch.float32, device=g_x.device)
-    for i in range(B):
-        m = signal_mask[i]
-        if not bool(m.any()):
-            out[i] = float("nan")
-            continue
-        num = torch.sqrt(err_sq[i][m].mean())
-        den = mag_true[i][m].mean().clamp_min(1e-30)
-        out[i] = float(num / den)
-    return out
+    count = masked_count_per_image(signal_mask)
+    num = torch.sqrt(masked_sum_per_image(err_sq, signal_mask) / count.clamp_min(1.0))
+    den = masked_mean_per_image(mag_true, signal_mask).clamp_min(1e-30)
+    out = num / den
+    return torch.where(count > 0, out, torch.full_like(out, float("nan")))

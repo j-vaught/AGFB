@@ -23,37 +23,48 @@ from agfb_metrics.metrics._cross_edge_profile import cross_edge_profile
 from agfb_metrics.metrics.base import check_grad_pair, magnitude
 
 
-def _fwhm_one_profile(prof: torch.Tensor, t: torch.Tensor) -> float | None:
-    K = prof.shape[0]
-    k_peak = int(torch.argmax(prof).item())
-    peak = float(prof[k_peak].item())
-    if peak <= 0.0:
-        return None
+def _fwhm_profiles(prof: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    """Vectorized FWHM for `(N, K)` profiles; unusable profiles yield NaN."""
+    N, K = prof.shape
+    if N == 0:
+        return torch.empty((0,), dtype=torch.float32, device=prof.device)
+
+    rows = torch.arange(N, device=prof.device)
+    idx = torch.arange(K, device=prof.device)
+    peak, k_peak = torch.max(prof, dim=1)
     half = 0.5 * peak
 
-    # Walk left from peak until we cross below half.
-    left = None
-    for k in range(k_peak, 0, -1):
-        if prof[k - 1].item() < half:
-            p_hi = prof[k].item()
-            p_lo = prof[k - 1].item()
-            frac = (p_hi - half) / max(p_hi - p_lo, 1e-30)
-            left = float(t[k].item() - frac * (t[k].item() - t[k - 1].item()))
-            break
-    if left is None:
-        return None
+    before_peak = idx.unsqueeze(0) < k_peak.unsqueeze(1)
+    below_half = prof < half.unsqueeze(1)
 
-    right = None
-    for k in range(k_peak, K - 1):
-        if prof[k + 1].item() < half:
-            p_hi = prof[k].item()
-            p_lo = prof[k + 1].item()
-            frac = (p_hi - half) / max(p_hi - p_lo, 1e-30)
-            right = float(t[k].item() + frac * (t[k + 1].item() - t[k].item()))
-            break
-    if right is None:
-        return None
-    return right - left
+    left_candidates = before_peak & below_half
+    has_left = left_candidates.any(dim=1)
+    left_lo = torch.where(left_candidates, idx.unsqueeze(0), -torch.ones_like(idx).unsqueeze(0))
+    left_lo = left_lo.max(dim=1).values
+    left_hi = (left_lo + 1).clamp_max(K - 1)
+
+    after_peak = idx.unsqueeze(0) > k_peak.unsqueeze(1)
+    right_candidates = after_peak & below_half
+    has_right = right_candidates.any(dim=1)
+    right_lo = torch.where(right_candidates, idx.unsqueeze(0), torch.full_like(idx, K).unsqueeze(0))
+    right_lo = right_lo.min(dim=1).values
+    right_hi = (right_lo - 1).clamp_min(0)
+
+    left_p_hi = prof[rows, left_hi]
+    left_p_lo = prof[rows, left_lo.clamp_min(0)]
+    left_den = (left_p_hi - left_p_lo).clamp_min(1e-30)
+    left_frac = (left_p_hi - half) / left_den
+    left = t[left_hi] - left_frac * (t[left_hi] - t[left_lo.clamp_min(0)])
+
+    right_p_hi = prof[rows, right_hi]
+    right_p_lo = prof[rows, right_lo.clamp_max(K - 1)]
+    right_den = (right_p_hi - right_p_lo).clamp_min(1e-30)
+    right_frac = (right_p_hi - half) / right_den
+    right = t[right_hi] + right_frac * (t[right_lo.clamp_max(K - 1)] - t[right_hi])
+
+    widths = right - left
+    valid = (peak > 0.0) & has_left & has_right
+    return torch.where(valid, widths, torch.full_like(widths, float("nan")))
 
 
 def edge_fwhm(
@@ -78,13 +89,11 @@ def edge_fwhm(
         if prof.shape[0] == 0:
             out[i] = float("nan")
             continue
-        widths: list[float] = []
-        for n in range(prof.shape[0]):
-            w = _fwhm_one_profile(prof[n], t)
-            if w is not None:
-                widths.append(w)
-        if not widths:
-            out[i] = float("nan")
-            continue
-        out[i] = float(sum(widths) / len(widths))
+        widths = _fwhm_profiles(prof, t)
+        valid = ~torch.isnan(widths)
+        count = valid.sum()
+        total = torch.where(valid, widths, torch.zeros_like(widths)).sum()
+        out[i] = torch.where(
+            count > 0, total / count.clamp_min(1), torch.tensor(float("nan"), device=prof.device)
+        )
     return out

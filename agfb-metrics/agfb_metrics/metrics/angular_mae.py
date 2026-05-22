@@ -18,11 +18,9 @@ the metric returns NaN for that image.
 
 from __future__ import annotations
 
-import math
-
 import torch
 
-from agfb_metrics.metrics.base import check_grad_pair, magnitude
+from agfb_metrics.metrics.base import check_grad_pair, magnitude, masked_mean_per_image
 
 
 def angular_mae(
@@ -44,15 +42,6 @@ def angular_mae(
     mag_t = magnitude(g_x_t, g_y_t)
     denom = (mag_f * mag_t).clamp_min(eps)
     cos_theta = (dot / denom).clamp(-1.0, 1.0)
-    theta_deg = torch.arccos(cos_theta) * (180.0 / math.pi)
+    theta_deg = torch.arccos(cos_theta) * (180.0 / torch.pi)
     valid = signal_mask & (mag_f > eps) & (mag_t > eps)
-
-    B = g_x.shape[0]
-    out = torch.empty(B, dtype=torch.float32, device=g_x.device)
-    for i in range(B):
-        m = valid[i]
-        if not bool(m.any()):
-            out[i] = float("nan")
-            continue
-        out[i] = float(theta_deg[i][m].mean())
-    return out
+    return masked_mean_per_image(theta_deg, valid)

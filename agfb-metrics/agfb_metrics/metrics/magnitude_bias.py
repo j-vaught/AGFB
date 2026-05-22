@@ -14,7 +14,12 @@ from __future__ import annotations
 
 import torch
 
-from agfb_metrics.metrics.base import check_grad_pair, magnitude
+from agfb_metrics.metrics.base import (
+    check_grad_pair,
+    magnitude,
+    masked_count_per_image,
+    masked_sum_per_image,
+)
 
 
 def magnitude_bias(
@@ -32,14 +37,8 @@ def magnitude_bias(
     mag_f = magnitude(g_x, g_y)
     mag_t = magnitude(g_x_t, g_y_t)
 
-    B = g_x.shape[0]
-    out = torch.empty(B, dtype=torch.float32, device=g_x.device)
-    for i in range(B):
-        m = signal_mask[i]
-        if not bool(m.any()):
-            out[i] = float("nan")
-            continue
-        num = mag_f[i][m].mean()
-        den = mag_t[i][m].mean().clamp_min(1e-30)
-        out[i] = float(num / den - 1.0)
-    return out
+    count = masked_count_per_image(signal_mask)
+    num = masked_sum_per_image(mag_f, signal_mask)
+    den = masked_sum_per_image(mag_t, signal_mask).clamp_min(1e-30)
+    out = num / den - 1.0
+    return torch.where(count > 0, out, torch.full_like(out, float("nan")))

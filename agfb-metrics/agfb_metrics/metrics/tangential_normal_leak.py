@@ -23,11 +23,14 @@ aggregator should treat -inf and NaN as failure flags.
 
 from __future__ import annotations
 
-import math
-
 import torch
 
-from agfb_metrics.metrics.base import check_grad_pair, unit_normal_from_truth
+from agfb_metrics.metrics.base import (
+    check_grad_pair,
+    masked_count_per_image,
+    masked_sum_per_image,
+    unit_normal_from_truth,
+)
 
 
 def tangential_normal_leak(
@@ -50,20 +53,10 @@ def tangential_normal_leak(
     g_n = g_x * n_x + g_y * n_y
     g_t = g_x * t_x + g_y * t_y
 
-    B = g_x.shape[0]
-    out = torch.empty(B, dtype=torch.float32, device=g_x.device)
-    for i in range(B):
-        m = signal_mask[i]
-        if not bool(m.any()):
-            out[i] = float("nan")
-            continue
-        e_n = float((g_n[i][m] ** 2).mean())
-        e_t = float((g_t[i][m] ** 2).mean())
-        if e_n < eps:
-            out[i] = float("-inf") if e_t < eps else float("inf")
-            continue
-        if e_t < eps:
-            out[i] = float("-inf")
-            continue
-        out[i] = 10.0 * math.log10(e_t / e_n)
-    return out
+    count = masked_count_per_image(signal_mask)
+    e_n = masked_sum_per_image(g_n * g_n, signal_mask) / count.clamp_min(1.0)
+    e_t = masked_sum_per_image(g_t * g_t, signal_mask) / count.clamp_min(1.0)
+    finite = 10.0 * torch.log10(e_t / e_n)
+    out = torch.where(e_n < eps, torch.where(e_t < eps, -torch.inf, torch.inf), finite)
+    out = torch.where((e_n >= eps) & (e_t < eps), -torch.inf, out)
+    return torch.where(count > 0, out, torch.full_like(out, float("nan")))
