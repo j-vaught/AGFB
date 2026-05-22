@@ -14,7 +14,6 @@ from agfb_filters.runtime.execution import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
 )
 from agfb_filters.runtime.runner import run_filter
 
@@ -28,6 +27,15 @@ _DEFINITION = GradientFilterDefinition(
     support="separable",
     symmetry="odd",
 )
+FILTER_SPECS = (
+    {
+        "name": "scharr_3",
+        "definition_factory": "scharr_3_definition",
+        "description": "Scharr 3-tap",
+        "exports": ("scharr_3", "scharr_3_definition"),
+        "smoke_path": "separable",
+    },
+)
 
 
 def scharr_3_definition() -> GradientFilterDefinition:
@@ -37,7 +45,7 @@ def scharr_3_definition() -> GradientFilterDefinition:
 def scharr_3(
     image: torch.Tensor,
     *,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     return run_filter(_DEFINITION, image, path=path, boundary=boundary)

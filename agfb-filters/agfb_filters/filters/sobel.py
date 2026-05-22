@@ -15,13 +15,38 @@ from agfb_filters.runtime.execution import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
 )
 from agfb_filters.runtime.runner import run_filter
 from agfb_filters.runtime.tensor_ops import linear_convolution_1d
 
 _SMOOTH_KERNEL_3 = torch.tensor([1.0, 2.0, 1.0]) / 4.0
 _DERIVATIVE_KERNEL_3 = torch.tensor([-1.0, 0.0, 1.0]) / 2.0
+FILTER_SPECS = (
+    {
+        "name": "sobel_3",
+        "definition_factory": "sobel_definition",
+        "description": "Sobel 3-tap",
+        "exports": ("sobel_3", "sobel_definition"),
+        "registry_kwargs": {"kernel_size": 3},
+        "smoke_path": "separable",
+    },
+    {
+        "name": "sobel_5",
+        "definition_factory": "sobel_definition",
+        "description": "Sobel 5-tap",
+        "exports": ("sobel_5",),
+        "registry_kwargs": {"kernel_size": 5},
+        "smoke_path": "separable",
+    },
+    {
+        "name": "sobel_7",
+        "definition_factory": "sobel_definition",
+        "description": "Sobel 7-tap",
+        "exports": ("sobel_7",),
+        "registry_kwargs": {"kernel_size": 7},
+        "smoke_path": "separable",
+    },
+)
 
 
 def _build_kernels(kernel_size: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -52,7 +77,7 @@ def sobel_definition(kernel_size: int) -> GradientFilterDefinition:
 def sobel_3(
     image: torch.Tensor,
     *,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     return run_filter(sobel_definition(3), image, path=path, boundary=boundary)
@@ -61,7 +86,7 @@ def sobel_3(
 def sobel_5(
     image: torch.Tensor,
     *,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     return run_filter(sobel_definition(5), image, path=path, boundary=boundary)
@@ -70,7 +95,7 @@ def sobel_5(
 def sobel_7(
     image: torch.Tensor,
     *,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     return run_filter(sobel_definition(7), image, path=path, boundary=boundary)

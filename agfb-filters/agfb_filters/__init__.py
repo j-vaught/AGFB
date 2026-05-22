@@ -1,4 +1,4 @@
-"""Batched, GPU-accelerated filters for the Analytical Gradient Filter Benchmark."""
+"""Batched gradient filter implementations for PyTorch."""
 
 from __future__ import annotations
 

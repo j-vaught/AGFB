@@ -1,8 +1,9 @@
-"""Single source of truth for shipped filter metadata."""
+"""Catalog collection for shipped filter metadata."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from importlib import import_module
 from types import MappingProxyType
 from typing import Any
 
@@ -21,14 +22,42 @@ class BuiltInFilterSpec:
     )
     smoke_kwargs: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     smoke_path: str = "spatial_dense"
+    output_api: str = "gradient"
 
+
+_FILTER_MODULES = (
+    "agfb_filters.filters.central_difference",
+    "agfb_filters.filters.farid_simoncelli",
+    "agfb_filters.filters.prewitt",
+    "agfb_filters.filters.roberts",
+    "agfb_filters.filters.scharr",
+    "agfb_filters.filters.sobel",
+    "agfb_filters.filters.cpgf",
+    "agfb_filters.filters.derivative_of_gaussian",
+    "agfb_filters.filters.freeman_adelson",
+    "agfb_filters.filters.savitzky_golay",
+    "agfb_filters.filters.sparse",
+    "agfb_filters.filters.box",
+    "agfb_filters.filters.recursive",
+    "agfb_filters.filters.nonlinear",
+    "agfb_filters.filters.iterative",
+    "agfb_filters.filters.orientation_bank",
+)
 
 _FILTER_CORE_EXPORTS = {
     "BuiltInFilterSpec": "agfb_filters.filters.catalog",
+    "FilterImplementationKind": "agfb_filters.filters.definitions",
     "FilterRegistration": "agfb_filters.filters.registry",
     "GradientFilterDefinition": "agfb_filters.filters.definitions",
+    "GradientFilterImplementation": "agfb_filters.filters.definitions",
+    "define_box_gradient_filter": "agfb_filters.filters.definitions",
     "define_dense_filter": "agfb_filters.filters.definitions",
+    "define_iterative_filter": "agfb_filters.filters.definitions",
+    "define_nonlinear_window_filter": "agfb_filters.filters.definitions",
+    "define_orientation_bank_filter": "agfb_filters.filters.definitions",
+    "define_recursive_filter": "agfb_filters.filters.definitions",
     "define_separable_filter": "agfb_filters.filters.definitions",
+    "define_sparse_offset_filter": "agfb_filters.filters.definitions",
     "get_filter_definition": "agfb_filters.filters.registry",
     "get_filter_registration": "agfb_filters.filters.registry",
     "register_filter": "agfb_filters.filters.registry",
@@ -37,133 +66,31 @@ _FILTER_CORE_EXPORTS = {
 }
 
 _RUNTIME_EXPORTS = {
-    "AutoRunner": "agfb_filters.runtime.autorunner",
-    "BenchmarkConfig": "agfb_filters.runtime.execution",
-    "BenchmarkResult": "agfb_filters.runtime.execution",
     "BoundaryCondition": "agfb_filters.runtime.execution",
     "BoundaryMode": "agfb_filters.runtime.execution",
+    "CollapsedOrientationBank": "agfb_filters.runtime.runner",
     "ExecutionPath": "agfb_filters.runtime.execution",
-    "ExecutionPlan": "agfb_filters.runtime.execution",
-    "InputSignature": "agfb_filters.runtime.execution",
+    "OrientationBankResult": "agfb_filters.runtime.runner",
+    "collapse_orientation_bank": "agfb_filters.runtime.runner",
     "run_filter": "agfb_filters.runtime.runner",
+    "run_orientation_bank": "agfb_filters.runtime.runner",
 }
-
-_SHIPPED_FILTER_SPECS = (
-    BuiltInFilterSpec(
-        name="central_difference",
-        module="agfb_filters.filters.central_difference",
-        definition_factory="central_difference_definition",
-        description="central finite difference",
-        exports=("central_difference", "central_difference_definition"),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="farid_simoncelli_5",
-        module="agfb_filters.filters.farid_simoncelli",
-        definition_factory="farid_simoncelli_5_definition",
-        description="Farid-Simoncelli 5-tap",
-        exports=("farid_simoncelli_5", "farid_simoncelli_5_definition"),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="prewitt_3",
-        module="agfb_filters.filters.prewitt",
-        definition_factory="prewitt_3_definition",
-        description="Prewitt 3-tap",
-        exports=("prewitt_3", "prewitt_3_definition"),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="roberts",
-        module="agfb_filters.filters.roberts",
-        definition_factory="roberts_definition",
-        description="Roberts cross",
-        exports=("roberts", "roberts_definition"),
-        smoke_path="stencil",
-    ),
-    BuiltInFilterSpec(
-        name="scharr_3",
-        module="agfb_filters.filters.scharr",
-        definition_factory="scharr_3_definition",
-        description="Scharr 3-tap",
-        exports=("scharr_3", "scharr_3_definition"),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="sobel_3",
-        module="agfb_filters.filters.sobel",
-        definition_factory="sobel_definition",
-        description="Sobel 3-tap",
-        exports=("sobel_3", "sobel_definition"),
-        registry_kwargs=MappingProxyType({"kernel_size": 3}),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="sobel_5",
-        module="agfb_filters.filters.sobel",
-        definition_factory="sobel_definition",
-        description="Sobel 5-tap",
-        exports=("sobel_5",),
-        registry_kwargs=MappingProxyType({"kernel_size": 5}),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="sobel_7",
-        module="agfb_filters.filters.sobel",
-        definition_factory="sobel_definition",
-        description="Sobel 7-tap",
-        exports=("sobel_7",),
-        registry_kwargs=MappingProxyType({"kernel_size": 7}),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="cpgf",
-        module="agfb_filters.filters.cpgf",
-        definition_factory="cpgf_definition",
-        description="circular polynomial gradient filter",
-        exports=("CPGF", "cpgf_definition", "cpgf_kernels"),
-        smoke_kwargs=MappingProxyType({"radius": 2, "degree": 2}),
-        smoke_path="sparse_offsets",
-    ),
-    BuiltInFilterSpec(
-        name="derivative_of_gaussian",
-        module="agfb_filters.filters.derivative_of_gaussian",
-        definition_factory="derivative_of_gaussian_definition",
-        description="first derivative of Gaussian",
-        exports=("DerivativeOfGaussian", "derivative_of_gaussian_definition"),
-        smoke_kwargs=MappingProxyType({"sigma": 1.0}),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="freeman_adelson_g1",
-        module="agfb_filters.filters.freeman_adelson",
-        definition_factory="freeman_adelson_g1_definition",
-        description="Freeman-Adelson G1",
-        exports=("FreemanAdelsonG1", "freeman_adelson_g1_definition"),
-        smoke_kwargs=MappingProxyType({"sigma": 1.0}),
-        smoke_path="separable",
-    ),
-    BuiltInFilterSpec(
-        name="savitzky_golay",
-        module="agfb_filters.filters.savitzky_golay",
-        definition_factory="savitzky_golay_definition",
-        description="Savitzky-Golay square fit",
-        exports=("SavitzkyGolay", "savitzky_golay_definition", "savitzky_golay_kernels"),
-        smoke_kwargs=MappingProxyType({"radius": 2, "degree": 2}),
-        smoke_path="spatial_dense",
-    ),
-)
 
 
 def shipped_filter_specs() -> tuple[BuiltInFilterSpec, ...]:
     """Return metadata for filters shipped with the package."""
-    return _SHIPPED_FILTER_SPECS
+    specs: list[BuiltInFilterSpec] = []
+    for module_name in _FILTER_MODULES:
+        module = import_module(module_name)
+        for spec_data in getattr(module, "FILTER_SPECS", ()):
+            specs.append(_built_in_filter_spec(module_name, spec_data))
+    return tuple(specs)
 
 
 def filter_export_modules() -> dict[str, str]:
     """Return public exports for `agfb_filters.filters`."""
     exports = dict(_FILTER_CORE_EXPORTS)
-    for spec in _SHIPPED_FILTER_SPECS:
+    for spec in shipped_filter_specs():
         for export_name in spec.exports:
             exports[export_name] = spec.module
     return exports
@@ -174,3 +101,19 @@ def root_export_modules() -> dict[str, str]:
     exports = filter_export_modules()
     exports.update(_RUNTIME_EXPORTS)
     return exports
+
+
+def _built_in_filter_spec(module_name: str, data: MappingProxyType[str, Any] | dict[str, Any]):
+    if not isinstance(data, MappingProxyType):
+        data = MappingProxyType(dict(data))
+    return BuiltInFilterSpec(
+        name=str(data["name"]),
+        module=module_name,
+        definition_factory=str(data["definition_factory"]),
+        description=str(data["description"]),
+        exports=tuple(str(export) for export in data["exports"]),
+        registry_kwargs=MappingProxyType(dict(data.get("registry_kwargs", {}))),
+        smoke_kwargs=MappingProxyType(dict(data.get("smoke_kwargs", {}))),
+        smoke_path=str(data.get("smoke_path", "spatial_dense")),
+        output_api=str(data.get("output_api", "gradient")),
+    )

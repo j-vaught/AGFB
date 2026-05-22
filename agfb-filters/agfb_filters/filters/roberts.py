@@ -19,7 +19,6 @@ from agfb_filters.runtime.execution import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
 )
 from agfb_filters.runtime.runner import run_filter
 
@@ -34,6 +33,15 @@ _DEFINITION = GradientFilterDefinition(
     support="offset_2x2",
     symmetry="odd",
 )
+FILTER_SPECS = (
+    {
+        "name": "roberts",
+        "definition_factory": "roberts_definition",
+        "description": "Roberts cross",
+        "exports": ("roberts", "roberts_definition"),
+        "smoke_path": "stencil",
+    },
+)
 
 
 def roberts_definition() -> GradientFilterDefinition:
@@ -43,7 +51,7 @@ def roberts_definition() -> GradientFilterDefinition:
 def roberts(
     image: torch.Tensor,
     *,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     return run_filter(_DEFINITION, image, path=path, boundary=boundary)

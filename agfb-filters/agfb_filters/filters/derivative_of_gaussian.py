@@ -18,9 +18,19 @@ from agfb_filters.runtime.execution import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
 )
 from agfb_filters.runtime.runner import run_filter
+
+FILTER_SPECS = (
+    {
+        "name": "derivative_of_gaussian",
+        "definition_factory": "derivative_of_gaussian_definition",
+        "description": "first derivative of Gaussian",
+        "exports": ("DerivativeOfGaussian", "derivative_of_gaussian_definition"),
+        "smoke_kwargs": {"sigma": 1.0},
+        "smoke_path": "separable",
+    },
+)
 
 
 def derivative_of_gaussian_definition(
@@ -33,7 +43,7 @@ def derivative_of_gaussian_definition(
     offsets = torch.arange(-radius, radius + 1, dtype=torch.float64)
     gaussian_kernel = torch.exp(-0.5 * (offsets / sigma) ** 2)
     gaussian_kernel = gaussian_kernel / gaussian_kernel.sum()
-    derivative_kernel = -(offsets / (sigma**2)) * gaussian_kernel
+    derivative_kernel = (offsets / (sigma**2)) * gaussian_kernel
     derivative_kernel = derivative_kernel - derivative_kernel.mean()
     return GradientFilterDefinition(
         name="derivative_of_gaussian",
@@ -43,6 +53,8 @@ def derivative_of_gaussian_definition(
         support="separable",
         symmetry="odd",
         metadata={"sigma": float(sigma), "truncate": float(truncate), "radius": radius},
+        operator_family="gaussian_derivative",
+        references=("Young1995Recursive",),
     )
 
 
@@ -58,7 +70,7 @@ class DerivativeOfGaussian:
         self,
         image: torch.Tensor,
         *,
-        path: ExecutionPath | ExecutionPlan | str,
+        path: ExecutionPath | str,
         boundary: BoundaryCondition | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         return run_filter(self.definition, image, path=path, boundary=boundary)

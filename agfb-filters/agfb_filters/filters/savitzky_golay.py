@@ -10,9 +10,19 @@ from agfb_filters.runtime.execution import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
 )
 from agfb_filters.runtime.runner import run_filter
+
+FILTER_SPECS = (
+    {
+        "name": "savitzky_golay",
+        "definition_factory": "savitzky_golay_definition",
+        "description": "Savitzky-Golay square fit",
+        "exports": ("SavitzkyGolay", "savitzky_golay_definition", "savitzky_golay_kernels"),
+        "smoke_kwargs": {"radius": 2, "degree": 2},
+        "smoke_path": "spatial_dense",
+    },
+)
 
 
 def savitzky_golay_kernels(
@@ -43,6 +53,9 @@ def savitzky_golay_definition(
         support="square",
         symmetry="odd",
         metadata={"radius": int(radius), "degree": int(degree)},
+        operator_family="polynomial_least_squares",
+        support_shape="square",
+        parameters={"radius": int(radius), "degree": int(degree)},
     )
 
 
@@ -58,7 +71,7 @@ class SavitzkyGolay:
         self,
         image: torch.Tensor,
         *,
-        path: ExecutionPath | ExecutionPlan | str,
+        path: ExecutionPath | str,
         boundary: BoundaryCondition | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         return run_filter(self.definition, image, path=path, boundary=boundary)

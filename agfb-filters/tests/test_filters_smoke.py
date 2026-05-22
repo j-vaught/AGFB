@@ -10,23 +10,24 @@ from agfb_filters import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
     GradientFilterDefinition,
-    InputSignature,
     cpgf_definition,
     get_filter_definition,
     get_filter_registration,
     run_filter,
+    run_orientation_bank,
     shipped_filter_specs,
     sobel_definition,
 )
 
 
-def test_filters_return_gradient_pair_with_input_shape() -> None:
+def test_gradient_filters_return_gradient_pair_with_input_shape() -> None:
     image = torch.randn(2, 8, 9)
 
     for spec in shipped_filter_specs():
         definition = get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
+        if spec.output_api != "gradient":
+            continue
         gradient_x, gradient_y = run_filter(
             definition,
             image,
@@ -37,6 +38,24 @@ def test_filters_return_gradient_pair_with_input_shape() -> None:
         assert gradient_y.shape == image.shape
         assert gradient_x.dtype == image.dtype
         assert gradient_y.dtype == image.dtype
+
+
+def test_orientation_bank_filters_return_raw_bank_with_input_shape() -> None:
+    image = torch.randn(2, 8, 9)
+
+    for spec in shipped_filter_specs():
+        if spec.output_api != "orientation_bank":
+            continue
+        definition = get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
+        result = run_orientation_bank(
+            definition,
+            image,
+            path=ExecutionPath(spec.smoke_path),
+            boundary=definition.default_boundary,
+        )
+        assert result.responses.shape == (2, int(definition.parameters["angle_count"]), 8, 9)
+        assert result.angles.shape == (int(definition.parameters["angle_count"]),)
+        assert result.definition_name == definition.name
 
 
 def test_shipped_filter_catalog_entries_are_complete() -> None:
@@ -53,33 +72,17 @@ def test_shipped_filter_catalog_entries_are_complete() -> None:
         assert registration.name == spec.name
         assert isinstance(definition, GradientFilterDefinition)
         assert definition.name == spec.name
+        assert definition.operator_family
+        assert definition.stage_count >= 1
+        assert definition.support_shape
+        assert definition.orientation_model
+        assert definition.shape_model == "same"
+        assert isinstance(definition.parameters, dict)
         for export_name in spec.exports:
             assert getattr(agfb_filters, export_name) is getattr(
                 agfb_filters.filters,
                 export_name,
             )
-        gradient_x, gradient_y = run_filter(
-            definition,
-            torch.randn(1, 8, 9),
-            path=ExecutionPath(spec.smoke_path),
-            boundary=definition.default_boundary,
-        )
-        assert gradient_x.shape == (1, 8, 9)
-        assert gradient_y.shape == (1, 8, 9)
-
-
-def test_runner_can_apply_definition_directly_with_explicit_path() -> None:
-    image = torch.randn(2, 8, 9)
-    definition = sobel_definition(3)
-    gradient_x, gradient_y = run_filter(
-        definition,
-        image,
-        path=ExecutionPath.SEPARABLE,
-        boundary=definition.default_boundary,
-    )
-
-    assert gradient_x.shape == image.shape
-    assert gradient_y.shape == image.shape
 
 
 def test_split_package_import_paths_are_available() -> None:
@@ -88,15 +91,6 @@ def test_split_package_import_paths_are_available() -> None:
 
     assert filters_sobel_definition is sobel_definition
     assert runtime_run_filter is run_filter
-
-
-def test_shipped_filter_catalog_exports_are_available_from_public_modules() -> None:
-    import agfb_filters
-    import agfb_filters.filters
-
-    for spec in shipped_filter_specs():
-        for export_name in spec.exports:
-            assert getattr(agfb_filters, export_name) is getattr(agfb_filters.filters, export_name)
 
 
 def test_dense_runner_paths_match_for_cpgf_definition() -> None:
@@ -174,55 +168,16 @@ def test_boundary_validation_rejects_nonzero_value_for_non_constant_mode() -> No
         BoundaryCondition(BoundaryMode.REFLECT, value=1.0)
 
 
-def test_run_filter_rejects_boundary_mismatch_with_plan() -> None:
-    image = torch.randn(1, 8, 9)
-    definition = sobel_definition(3)
-    plan = ExecutionPlan(
-        path=ExecutionPath.SEPARABLE,
-        input_signature=InputSignature.from_tensor(image),
-        boundary=definition.default_boundary,
-        filter_fingerprint=definition.fingerprint(),
-        reason="test plan",
-    )
-
-    with pytest.raises(ValueError, match="boundary"):
-        run_filter(
-            definition,
-            image,
-            path=plan,
-            boundary=BoundaryCondition(BoundaryMode.CONSTANT),
-        )
-
-
-def test_execution_plan_supplies_boundary_when_direct_boundary_is_absent() -> None:
-    image = torch.randn(1, 8, 9)
-    definition = sobel_definition(3)
-    plan = ExecutionPlan(
-        path=ExecutionPath.SEPARABLE,
-        input_signature=InputSignature.from_tensor(image),
-        boundary=definition.default_boundary,
-        filter_fingerprint=definition.fingerprint(),
-        reason="test plan",
-    )
-
-    gradient_x, gradient_y = run_filter(definition, image, path=plan)
-
-    assert gradient_x.shape == image.shape
-    assert gradient_y.shape == image.shape
-
-
-def test_run_filter_preserves_float64_with_execution_plan() -> None:
+def test_run_filter_preserves_float64() -> None:
     image = torch.randn(1, 8, 9, dtype=torch.float64)
     definition = sobel_definition(3)
-    plan = ExecutionPlan(
-        path=ExecutionPath.SPATIAL_DENSE,
-        input_signature=InputSignature.from_tensor(image),
-        boundary=definition.default_boundary,
-        filter_fingerprint=definition.fingerprint(),
-        reason="test plan",
-    )
 
-    gradient_x, gradient_y = run_filter(definition, image, path=plan)
+    gradient_x, gradient_y = run_filter(
+        definition,
+        image,
+        path=ExecutionPath.SPATIAL_DENSE,
+        boundary=definition.default_boundary,
+    )
 
     assert gradient_x.dtype == torch.float64
     assert gradient_y.dtype == torch.float64

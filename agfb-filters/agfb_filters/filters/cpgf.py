@@ -16,9 +16,19 @@ from agfb_filters.runtime.execution import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
 )
 from agfb_filters.runtime.runner import run_filter
+
+FILTER_SPECS = (
+    {
+        "name": "cpgf",
+        "definition_factory": "cpgf_definition",
+        "description": "circular polynomial gradient filter",
+        "exports": ("CPGF", "cpgf_definition", "cpgf_kernels"),
+        "smoke_kwargs": {"radius": 2, "degree": 2},
+        "smoke_path": "sparse_offsets",
+    },
+)
 
 
 def cpgf_kernels(
@@ -53,6 +63,9 @@ def cpgf_definition(
         support="disc",
         symmetry="odd",
         metadata={"radius": int(radius), "degree": int(degree)},
+        operator_family="polynomial_least_squares",
+        support_shape="disc",
+        parameters={"radius": int(radius), "degree": int(degree)},
     )
 
 
@@ -68,7 +81,7 @@ class CPGF:
         self,
         image: torch.Tensor,
         *,
-        path: ExecutionPath | ExecutionPlan | str,
+        path: ExecutionPath | str,
         boundary: BoundaryCondition | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         return run_filter(self.definition, image, path=path, boundary=boundary)

@@ -13,7 +13,6 @@ from agfb_filters.runtime.execution import (
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
-    ExecutionPlan,
 )
 from agfb_filters.runtime.runner import run_filter
 
@@ -27,6 +26,15 @@ _DEFINITION = GradientFilterDefinition(
     support="separable",
     symmetry="odd",
 )
+FILTER_SPECS = (
+    {
+        "name": "central_difference",
+        "definition_factory": "central_difference_definition",
+        "description": "central finite difference",
+        "exports": ("central_difference", "central_difference_definition"),
+        "smoke_path": "separable",
+    },
+)
 
 
 def central_difference_definition() -> GradientFilterDefinition:
@@ -36,7 +44,7 @@ def central_difference_definition() -> GradientFilterDefinition:
 def central_difference(
     image: torch.Tensor,
     *,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     return run_filter(_DEFINITION, image, path=path, boundary=boundary)

@@ -20,8 +20,19 @@ import torch
 
 from agfb_filters.filters.definitions import GradientFilterDefinition
 from agfb_filters.filters.derivative_of_gaussian import derivative_of_gaussian_definition
-from agfb_filters.runtime.execution import BoundaryCondition, ExecutionPath, ExecutionPlan
+from agfb_filters.runtime.execution import BoundaryCondition, ExecutionPath
 from agfb_filters.runtime.runner import run_filter
+
+FILTER_SPECS = (
+    {
+        "name": "freeman_adelson_g1",
+        "definition_factory": "freeman_adelson_g1_definition",
+        "description": "Freeman-Adelson G1",
+        "exports": ("FreemanAdelsonG1", "freeman_adelson_g1_definition"),
+        "smoke_kwargs": {"sigma": 1.0},
+        "smoke_path": "separable",
+    },
+)
 
 
 def freeman_adelson_g1_definition(
@@ -37,6 +48,8 @@ def freeman_adelson_g1_definition(
         support=derivative_definition.support,
         symmetry=derivative_definition.symmetry,
         metadata=derivative_definition.metadata,
+        operator_family="steerable_gaussian_derivative",
+        references=("Freeman1991Steerable",),
     )
 
 
@@ -49,7 +62,7 @@ class FreemanAdelsonG1:
         self,
         image: torch.Tensor,
         *,
-        path: ExecutionPath | ExecutionPlan | str,
+        path: ExecutionPath | str,
         boundary: BoundaryCondition | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         return run_filter(self.definition, image, path=path, boundary=boundary)

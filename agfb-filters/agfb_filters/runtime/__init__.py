@@ -1,4 +1,4 @@
-"""Runtime execution, planning, and boundary handling."""
+"""Runtime execution and boundary handling."""
 
 from __future__ import annotations
 
@@ -6,15 +6,14 @@ from importlib import import_module
 from typing import Any
 
 _EXPORT_MODULES = {
-    "AutoRunner": "agfb_filters.runtime.autorunner",
-    "BenchmarkConfig": "agfb_filters.runtime.execution",
-    "BenchmarkResult": "agfb_filters.runtime.execution",
     "BoundaryCondition": "agfb_filters.runtime.execution",
     "BoundaryMode": "agfb_filters.runtime.execution",
+    "CollapsedOrientationBank": "agfb_filters.runtime.runner",
     "ExecutionPath": "agfb_filters.runtime.execution",
-    "ExecutionPlan": "agfb_filters.runtime.execution",
-    "InputSignature": "agfb_filters.runtime.execution",
+    "OrientationBankResult": "agfb_filters.runtime.runner",
+    "collapse_orientation_bank": "agfb_filters.runtime.runner",
     "run_filter": "agfb_filters.runtime.runner",
+    "run_orientation_bank": "agfb_filters.runtime.runner",
 }
 
 __all__ = sorted(_EXPORT_MODULES)

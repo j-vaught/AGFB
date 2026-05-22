@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import math
+from dataclasses import dataclass
+
 import torch
 import torch.fft as torch_fft
 import torch.nn.functional as F
 
-from agfb_filters.filters.definitions import GradientFilterDefinition
+from agfb_filters.filters.definitions import (
+    FilterImplementationKind,
+    GradientFilterDefinition,
+    sparse_padding,
+)
 from agfb_filters.runtime.execution import (
     BoundaryCondition,
     ExecutionPath,
-    ExecutionPlan,
-    InputSignature,
     concrete_path,
 )
 from agfb_filters.runtime.tensor_ops import check_input, pad_with_boundary, separable_gradient
@@ -25,16 +30,103 @@ _AntipodalPair = tuple[int, int, torch.Tensor]
 _AntipodalCacheKey = tuple[str, str, str, str]
 
 
+@dataclass(frozen=True)
+class OrientationBankResult:
+    """Raw orientation-bank response stack."""
+
+    responses: torch.Tensor
+    angles: torch.Tensor
+    definition_name: str
+
+
+@dataclass(frozen=True)
+class CollapsedOrientationBank:
+    """Projected orientation-bank result."""
+
+    gradient_x: torch.Tensor
+    gradient_y: torch.Tensor
+    response: torch.Tensor
+    angle: torch.Tensor
+
+
 def run_filter(
     definition: GradientFilterDefinition,
     image: torch.Tensor,
     *,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Run a filter definition against an image batch with one explicit path."""
+    """Run a gradient filter definition against an image batch with one path."""
     image = check_input(image)
     return _DEFAULT_RUNNER.run(definition, image, path=path, boundary=boundary)
+
+
+def run_orientation_bank(
+    definition: GradientFilterDefinition,
+    image: torch.Tensor,
+    *,
+    path: ExecutionPath | str,
+    boundary: BoundaryCondition | None = None,
+) -> OrientationBankResult:
+    """Run an orientation-bank filter and return raw directional responses."""
+    image = check_input(image)
+    return _DEFAULT_RUNNER.run_orientation_bank(
+        definition,
+        image,
+        path=path,
+        boundary=boundary,
+    )
+
+
+def collapse_orientation_bank(
+    result: OrientationBankResult,
+    mode: str = "max_projection",
+) -> CollapsedOrientationBank:
+    """Collapse raw orientation responses to a gradient-like projection."""
+    if not isinstance(result, OrientationBankResult):
+        raise ValueError("result must be an OrientationBankResult")
+    responses = result.responses
+    angles = result.angles.to(device=responses.device, dtype=responses.dtype)
+    if responses.ndim != 4:
+        raise ValueError("orientation responses must have shape (batch, angles, height, width)")
+    if int(responses.shape[1]) != int(angles.numel()):
+        raise ValueError("response angle dimension must match angles")
+
+    if mode == "max_projection":
+        absolute = responses.abs()
+        indices = absolute.argmax(dim=1)
+        selected = responses.gather(1, indices.unsqueeze(1)).squeeze(1)
+        selected_angles = angles[indices]
+        gradient_x = selected * torch.cos(selected_angles)
+        gradient_y = selected * torch.sin(selected_angles)
+        return CollapsedOrientationBank(
+            gradient_x=gradient_x.contiguous(),
+            gradient_y=gradient_y.contiguous(),
+            response=selected.abs().contiguous(),
+            angle=torch.remainder(selected_angles, math.pi).contiguous(),
+        )
+
+    if mode == "least_squares_projection":
+        design = torch.stack((torch.cos(angles), torch.sin(angles)), dim=1)
+        pseudo_inverse = torch.linalg.pinv(design)
+        flat = responses.permute(1, 0, 2, 3).reshape(angles.numel(), -1)
+        projected = pseudo_inverse @ flat
+        gradient_x = projected[0].reshape(
+            responses.shape[0], responses.shape[2], responses.shape[3]
+        )
+        gradient_y = projected[1].reshape(
+            responses.shape[0], responses.shape[2], responses.shape[3]
+        )
+        response = torch.sqrt(gradient_x.square() + gradient_y.square())
+        angle = torch.remainder(torch.atan2(gradient_y, gradient_x), math.pi)
+        return CollapsedOrientationBank(
+            gradient_x=gradient_x.contiguous(),
+            gradient_y=gradient_y.contiguous(),
+            response=response.contiguous(),
+            angle=angle.contiguous(),
+        )
+
+    raise ValueError("collapse mode must be max_projection or least_squares_projection")
 
 
 class _FilterRunner:
@@ -50,10 +142,13 @@ class _FilterRunner:
         definition: GradientFilterDefinition,
         image: torch.Tensor,
         *,
-        path: ExecutionPath | ExecutionPlan | str,
+        path: ExecutionPath | str,
         boundary: BoundaryCondition | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        selected_path, selected_boundary = _resolve_execution(definition, image, path, boundary)
+        selected_path, selected_boundary = _resolve_execution(definition, path, boundary)
+        implementation = definition.require_implementation()
+        if implementation.kind == FilterImplementationKind.ORIENTATION_BANK:
+            raise ValueError("orientation-bank definitions must be run with run_orientation_bank")
 
         if selected_path == ExecutionPath.SEPARABLE:
             _require_separable(definition, selected_path)
@@ -62,6 +157,34 @@ class _FilterRunner:
                 image,
                 smooth_kernel_1d=smooth_kernel.to(device=image.device, dtype=image.dtype),
                 derivative_kernel_1d=derivative_kernel.to(device=image.device, dtype=image.dtype),
+                boundary=selected_boundary,
+            )
+
+        if selected_path == ExecutionPath.BOX_INTEGRAL:
+            _require_kind(definition, FilterImplementationKind.BOX_GRADIENT, selected_path)
+            return self._box_integral_gradient(image, definition, boundary=selected_boundary)
+
+        if selected_path == ExecutionPath.RECURSIVE:
+            _require_kind(definition, FilterImplementationKind.RECURSIVE, selected_path)
+            return _recursive_gaussian_derivative(image, definition, boundary=selected_boundary)
+
+        if selected_path == ExecutionPath.NONLINEAR_WINDOW:
+            _require_kind(definition, FilterImplementationKind.NONLINEAR_WINDOW, selected_path)
+            return _robust_local_plane_gradient(image, definition, boundary=selected_boundary)
+
+        if selected_path == ExecutionPath.ITERATIVE:
+            _require_kind(definition, FilterImplementationKind.ITERATIVE, selected_path)
+            return _perona_malik_gradient(image, definition, boundary=selected_boundary)
+
+        if selected_path == ExecutionPath.SPARSE_OFFSETS and (
+            implementation.kind == FilterImplementationKind.SPARSE_OFFSET
+        ):
+            offsets, weights_x, weights_y = definition.sparse_offsets()
+            return self._direct_sparse_offset_cross_correlation(
+                image,
+                offsets.to(device=image.device),
+                weights_x.to(device=image.device, dtype=image.dtype),
+                weights_y.to(device=image.device, dtype=image.dtype),
                 boundary=selected_boundary,
             )
 
@@ -110,6 +233,34 @@ class _FilterRunner:
                 filter_fingerprint=definition.fingerprint(),
             )
         raise ValueError(f"unsupported execution path {selected_path}")
+
+    def run_orientation_bank(
+        self,
+        definition: GradientFilterDefinition,
+        image: torch.Tensor,
+        *,
+        path: ExecutionPath | str,
+        boundary: BoundaryCondition | None,
+    ) -> OrientationBankResult:
+        selected_path, selected_boundary = _resolve_execution(definition, path, boundary)
+        _require_kind(definition, FilterImplementationKind.ORIENTATION_BANK, selected_path)
+        if selected_path not in {ExecutionPath.ORIENTATION_BANK, ExecutionPath.SPATIAL_DENSE}:
+            raise ValueError("orientation banks support orientation_bank and spatial_dense paths")
+        implementation = definition.require_implementation()
+        kernels = _require_tensor(implementation.orientation_kernels).to(
+            device=image.device,
+            dtype=image.dtype,
+        )
+        angles = _require_tensor(implementation.angles).to(device=image.device, dtype=image.dtype)
+        spatial_padding = _orientation_padding(definition, kernels)
+        image_channels = image.unsqueeze(1)
+        padded_image = pad_with_boundary(image_channels, spatial_padding, selected_boundary)
+        gradients = F.conv2d(padded_image, kernels.unsqueeze(1))
+        return OrientationBankResult(
+            responses=gradients.contiguous(),
+            angles=angles.contiguous(),
+            definition_name=definition.name,
+        )
 
     def _dense_kernels_for_image(
         self,
@@ -255,6 +406,37 @@ class _FilterRunner:
         self._spatial_kernel_stack_cache[cache_key] = kernel_stack
         return kernel_stack
 
+    def _direct_sparse_offset_cross_correlation(
+        self,
+        image: torch.Tensor,
+        offsets: torch.Tensor,
+        weights_x: torch.Tensor,
+        weights_y: torch.Tensor,
+        *,
+        boundary: BoundaryCondition,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        image_height = int(image.shape[-2])
+        image_width = int(image.shape[-1])
+        padding = sparse_padding(offsets)
+        top = padding[2]
+        left = padding[0]
+        padded_image = pad_with_boundary(image.unsqueeze(1), padding, boundary).squeeze(1)
+        gradient_x = torch.zeros_like(image)
+        gradient_y = torch.zeros_like(image)
+        for offset, weight_x, weight_y in zip(offsets, weights_x, weights_y, strict=True):
+            row_start = top + int(offset[0].item())
+            column_start = left + int(offset[1].item())
+            image_window = padded_image[
+                :,
+                row_start : row_start + image_height,
+                column_start : column_start + image_width,
+            ]
+            if weight_x != 0:
+                gradient_x.add_(image_window * weight_x)
+            if weight_y != 0:
+                gradient_y.add_(image_window * weight_y)
+        return gradient_x.contiguous(), gradient_y.contiguous()
+
     def _offset_cross_correlation(
         self,
         image: torch.Tensor,
@@ -398,45 +580,83 @@ class _FilterRunner:
         self._antipodal_pair_cache[cache_key] = pairs
         return pairs
 
+    def _box_integral_gradient(
+        self,
+        image: torch.Tensor,
+        definition: GradientFilterDefinition,
+        *,
+        boundary: BoundaryCondition,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        radius = _require_int(definition.require_implementation().box_radius)
+        image_height = int(image.shape[-2])
+        image_width = int(image.shape[-1])
+        padding = (radius, radius, radius, radius)
+        padded = pad_with_boundary(image.unsqueeze(1), padding, boundary).squeeze(1)
+        integral = F.pad(padded.cumsum(dim=-2).cumsum(dim=-1), (1, 0, 1, 0))
+        size = 2 * radius + 1
+        center = radius
+        scale = 1.0 / float(size * radius * (radius + 1))
+        left_sum = _sliding_rect_sum(
+            integral,
+            image_height=image_height,
+            image_width=image_width,
+            row_start=0,
+            row_end=size,
+            column_start=0,
+            column_end=center,
+        )
+        right_sum = _sliding_rect_sum(
+            integral,
+            image_height=image_height,
+            image_width=image_width,
+            row_start=0,
+            row_end=size,
+            column_start=center + 1,
+            column_end=size,
+        )
+        top_sum = _sliding_rect_sum(
+            integral,
+            image_height=image_height,
+            image_width=image_width,
+            row_start=0,
+            row_end=center,
+            column_start=0,
+            column_end=size,
+        )
+        bottom_sum = _sliding_rect_sum(
+            integral,
+            image_height=image_height,
+            image_width=image_width,
+            row_start=center + 1,
+            row_end=size,
+            column_start=0,
+            column_end=size,
+        )
+        gradient_x = (right_sum - left_sum) * scale
+        gradient_y = (bottom_sum - top_sum) * scale
+        return gradient_x.contiguous(), gradient_y.contiguous()
+
 
 def _resolve_execution(
     definition: GradientFilterDefinition,
-    image: torch.Tensor,
-    path: ExecutionPath | ExecutionPlan | str,
+    path: ExecutionPath | str,
     boundary: BoundaryCondition | None,
 ) -> tuple[ExecutionPath, BoundaryCondition]:
-    selected_boundary = _resolve_boundary(path, boundary)
-    if isinstance(path, ExecutionPlan):
-        filter_fingerprint = definition.fingerprint()
-        if path.filter_fingerprint != filter_fingerprint:
-            raise ValueError("execution plan fingerprint does not match filter definition")
-        input_signature = InputSignature.from_tensor(image)
-        if path.input_signature != input_signature:
-            raise ValueError("execution plan input signature does not match image")
+    if boundary is None:
+        raise ValueError("boundary must be provided")
+    if not isinstance(boundary, BoundaryCondition):
+        raise ValueError("boundary must be a BoundaryCondition")
+    if not definition.supports_boundary(boundary):
+        supported = ", ".join(mode.value for mode in definition.supported_boundaries)
+        raise ValueError(
+            f"{definition.name} does not support {boundary.mode.value} boundary; "
+            f"supported boundaries are {supported}"
+        )
     try:
         selected_path = concrete_path(path)
     except ValueError as error:
         raise ValueError(f"unsupported execution path {path!r}") from error
-    if selected_path == ExecutionPath.SEPARABLE:
-        _require_separable(definition, selected_path)
-    else:
-        _require_dense(definition, selected_path)
-    return selected_path, selected_boundary
-
-
-def _resolve_boundary(
-    path: ExecutionPath | ExecutionPlan | str,
-    boundary: BoundaryCondition | None,
-) -> BoundaryCondition:
-    if boundary is not None and not isinstance(boundary, BoundaryCondition):
-        raise ValueError("boundary must be a BoundaryCondition")
-    if isinstance(path, ExecutionPlan):
-        if boundary is not None and boundary != path.boundary:
-            raise ValueError("execution plan boundary does not match explicit boundary")
-        return path.boundary
-    if boundary is None:
-        raise ValueError("boundary must be provided unless path is an ExecutionPlan")
-    return boundary
+    return selected_path, boundary
 
 
 def _require_separable(definition: GradientFilterDefinition, path: ExecutionPath) -> None:
@@ -444,9 +664,13 @@ def _require_separable(definition: GradientFilterDefinition, path: ExecutionPath
         raise ValueError(f"{path.value} path requires separable kernels for {definition.name}")
 
 
-def _require_dense(definition: GradientFilterDefinition, path: ExecutionPath) -> None:
-    if not definition.has_dense_kernels:
-        raise ValueError(f"{path.value} path requires dense kernels for {definition.name}")
+def _require_kind(
+    definition: GradientFilterDefinition,
+    kind: FilterImplementationKind,
+    path: ExecutionPath,
+) -> None:
+    if definition.require_implementation().kind != kind:
+        raise ValueError(f"{path.value} path requires {kind.value} implementation")
 
 
 def _kernel_cache_key(
@@ -479,6 +703,17 @@ def _spatial_padding(
     padding_height = kernel_height // 2
     padding_width = kernel_width // 2
     return (padding_width, padding_width, padding_height, padding_height)
+
+
+def _orientation_padding(
+    definition: GradientFilterDefinition,
+    kernels: torch.Tensor,
+) -> tuple[int, int, int, int]:
+    if definition.spatial_padding is not None:
+        return definition.spatial_padding
+    kernel_height = int(kernels.shape[-2])
+    kernel_width = int(kernels.shape[-1])
+    return (kernel_width // 2, kernel_width // 2, kernel_height // 2, kernel_height // 2)
 
 
 def _should_stack_sparse_offsets(
@@ -580,6 +815,209 @@ def _require_output_shape(
             "spatial padding must preserve input shape, "
             f"got output {output_height}x{output_width} for input {image_height}x{image_width}"
         )
+
+
+def _sliding_rect_sum(
+    integral: torch.Tensor,
+    *,
+    image_height: int,
+    image_width: int,
+    row_start: int,
+    row_end: int,
+    column_start: int,
+    column_end: int,
+) -> torch.Tensor:
+    return (
+        integral[:, row_end : row_end + image_height, column_end : column_end + image_width]
+        - integral[:, row_start : row_start + image_height, column_end : column_end + image_width]
+        - integral[:, row_end : row_end + image_height, column_start : column_start + image_width]
+        + integral[
+            :,
+            row_start : row_start + image_height,
+            column_start : column_start + image_width,
+        ]
+    )
+
+
+def _recursive_gaussian_derivative(
+    image: torch.Tensor,
+    definition: GradientFilterDefinition,
+    *,
+    boundary: BoundaryCondition,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    sigma = _require_float(definition.require_implementation().recursive_sigma)
+    alpha = math.exp(-math.sqrt(2.0) / sigma)
+    smoothed = _recursive_smooth_axis(image, alpha=alpha, axis=-1)
+    smoothed = _recursive_smooth_axis(smoothed, alpha=alpha, axis=-2)
+    padded = pad_with_boundary(smoothed.unsqueeze(1), (1, 1, 1, 1), boundary).squeeze(1)
+    gradient_x = (padded[:, 1:-1, 2:] - padded[:, 1:-1, :-2]) * 0.5
+    gradient_y = (padded[:, 2:, 1:-1] - padded[:, :-2, 1:-1]) * 0.5
+    return gradient_x.contiguous(), gradient_y.contiguous()
+
+
+def _recursive_smooth_axis(
+    image: torch.Tensor,
+    *,
+    alpha: float,
+    axis: int,
+) -> torch.Tensor:
+    moved = image.movedim(axis, -1)
+    causal = torch.empty_like(moved)
+    anti_causal = torch.empty_like(moved)
+    causal[..., 0] = moved[..., 0]
+    gain = 1.0 - alpha
+    for index in range(1, int(moved.shape[-1])):
+        causal[..., index] = gain * moved[..., index] + alpha * causal[..., index - 1]
+    anti_causal[..., -1] = causal[..., -1]
+    for index in range(int(moved.shape[-1]) - 2, -1, -1):
+        anti_causal[..., index] = gain * causal[..., index] + alpha * anti_causal[..., index + 1]
+    return anti_causal.movedim(-1, axis)
+
+
+def _robust_local_plane_gradient(
+    image: torch.Tensor,
+    definition: GradientFilterDefinition,
+    *,
+    boundary: BoundaryCondition,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    implementation = definition.require_implementation()
+    radius = _require_int(implementation.nonlinear_radius)
+    window_size = 2 * radius + 1
+    padding = (radius, radius, radius, radius)
+    padded = pad_with_boundary(image.unsqueeze(1), padding, boundary)
+    patches = F.unfold(padded, kernel_size=(window_size, window_size))
+    batch, _, sample_count = patches.shape
+    patches = patches.transpose(1, 2).reshape(batch * sample_count, window_size * window_size)
+    coordinates = torch.arange(-radius, radius + 1, dtype=image.dtype, device=image.device)
+    rows, columns = torch.meshgrid(coordinates, coordinates, indexing="ij")
+    design = torch.stack(
+        (columns.reshape(-1), rows.reshape(-1), torch.ones_like(rows).reshape(-1)),
+        dim=1,
+    )
+    initial = torch.linalg.pinv(design) @ patches.transpose(0, 1)
+    residuals = patches - (design @ initial).transpose(0, 1)
+    weights = _local_plane_weights(
+        patches,
+        residuals,
+        center_index=(window_size * window_size) // 2,
+        weighting=str(implementation.nonlinear_weighting),
+        range_sigma=_require_float(implementation.nonlinear_range_sigma),
+        robust_scale=_require_float(implementation.nonlinear_robust_scale),
+    )
+    weighted_design = design.unsqueeze(0) * weights.unsqueeze(-1)
+    normal_matrix = torch.matmul(design.transpose(0, 1).unsqueeze(0), weighted_design)
+    right_hand_side = torch.matmul(
+        weighted_design.transpose(1, 2),
+        patches.unsqueeze(-1),
+    )
+    ridge = torch.finfo(image.dtype).eps * max(float(window_size * window_size), 1.0) * 10.0
+    eye = torch.eye(3, dtype=image.dtype, device=image.device).unsqueeze(0)
+    coefficients = torch.linalg.solve(normal_matrix + ridge * eye, right_hand_side).squeeze(-1)
+    gradient_x = coefficients[:, 0].reshape(batch, sample_count)
+    gradient_y = coefficients[:, 1].reshape(batch, sample_count)
+    height = int(image.shape[-2])
+    width = int(image.shape[-1])
+    return (
+        gradient_x.reshape(batch, height, width).contiguous(),
+        gradient_y.reshape(batch, height, width).contiguous(),
+    )
+
+
+def _local_plane_weights(
+    patches: torch.Tensor,
+    residuals: torch.Tensor,
+    *,
+    center_index: int,
+    weighting: str,
+    range_sigma: float,
+    robust_scale: float,
+) -> torch.Tensor:
+    if weighting == "none":
+        return torch.ones_like(patches)
+    if weighting == "bilateral":
+        center = patches[:, center_index].unsqueeze(1)
+        return torch.exp(-0.5 * ((patches - center) / range_sigma).square())
+
+    absolute = residuals.abs()
+    if weighting == "huber":
+        return torch.where(
+            absolute <= robust_scale,
+            torch.ones_like(absolute),
+            robust_scale / absolute.clamp_min(torch.finfo(patches.dtype).eps),
+        )
+    if weighting == "tukey":
+        scaled = absolute / robust_scale
+        inside = scaled < 1.0
+        weights = (1.0 - scaled.square()).clamp_min(0.0).square()
+        return torch.where(inside, weights, torch.zeros_like(weights))
+    raise ValueError(f"unsupported nonlinear weighting {weighting!r}")
+
+
+def _perona_malik_gradient(
+    image: torch.Tensor,
+    definition: GradientFilterDefinition,
+    *,
+    boundary: BoundaryCondition,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    implementation = definition.require_implementation()
+    state = image.clone()
+    iterations = _require_int(implementation.iterative_iterations)
+    step_size = _require_float(implementation.iterative_step_size)
+    kappa = _require_float(implementation.iterative_kappa)
+    conduction = str(implementation.iterative_conduction)
+    for _ in range(iterations):
+        padded = pad_with_boundary(state.unsqueeze(1), (1, 1, 1, 1), boundary).squeeze(1)
+        north = padded[:, :-2, 1:-1] - state
+        south = padded[:, 2:, 1:-1] - state
+        west = padded[:, 1:-1, :-2] - state
+        east = padded[:, 1:-1, 2:] - state
+        update = (
+            _perona_malik_conduction(north, kappa=kappa, mode=conduction) * north
+            + _perona_malik_conduction(south, kappa=kappa, mode=conduction) * south
+            + _perona_malik_conduction(west, kappa=kappa, mode=conduction) * west
+            + _perona_malik_conduction(east, kappa=kappa, mode=conduction) * east
+        )
+        state = state + step_size * update
+
+    radius = _require_int(implementation.iterative_derivative_radius)
+    padding = (radius, radius, radius, radius)
+    padded = pad_with_boundary(state.unsqueeze(1), padding, boundary).squeeze(1)
+    scale = 1.0 / float(2 * radius)
+    gradient_x = padded[:, radius:-radius, 2 * radius :] - padded[:, radius:-radius, : -2 * radius]
+    gradient_y = padded[:, 2 * radius :, radius:-radius] - padded[:, : -2 * radius, radius:-radius]
+    return (gradient_x * scale).contiguous(), (gradient_y * scale).contiguous()
+
+
+def _perona_malik_conduction(
+    difference: torch.Tensor,
+    *,
+    kappa: float,
+    mode: str,
+) -> torch.Tensor:
+    scaled = difference / kappa
+    if mode == "exponential":
+        return torch.exp(-scaled.square())
+    if mode == "reciprocal":
+        return 1.0 / (1.0 + scaled.square())
+    raise ValueError(f"unsupported Perona-Malik conduction {mode!r}")
+
+
+def _require_tensor(tensor: torch.Tensor | None) -> torch.Tensor:
+    if tensor is None:
+        raise ValueError("expected tensor value")
+    return tensor
+
+
+def _require_int(value: int | None) -> int:
+    if value is None:
+        raise ValueError("expected integer value")
+    return int(value)
+
+
+def _require_float(value: float | None) -> float:
+    if value is None:
+        raise ValueError("expected float value")
+    return float(value)
 
 
 _DEFAULT_RUNNER = _FilterRunner()

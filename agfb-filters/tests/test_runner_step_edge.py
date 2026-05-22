@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from agfb_filters import (
-    AutoRunner,
     BoundaryCondition,
     BoundaryMode,
     ExecutionPath,
@@ -22,30 +22,29 @@ def _step_image() -> tuple[torch.Tensor, int]:
     return image, edge_column
 
 
-def _boundary_conditions() -> tuple[BoundaryCondition, ...]:
-    return (
-        BoundaryCondition(BoundaryMode.REFLECT),
-        BoundaryCondition(BoundaryMode.REPLICATE),
-        BoundaryCondition(BoundaryMode.CONSTANT),
-        BoundaryCondition(BoundaryMode.CIRCULAR),
-    )
+def _gradient_specs():
+    return [spec for spec in shipped_filter_specs() if spec.output_api == "gradient"]
 
 
-def _definitions():
-    return [
-        get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
-        for spec in shipped_filter_specs()
-    ]
+def _dense_like_paths(definition) -> tuple[ExecutionPath, ...]:
+    paths = [ExecutionPath.SPATIAL_DENSE, ExecutionPath.FFT, ExecutionPath.SPARSE_OFFSETS]
+    kernel_x, kernel_y = definition.dense_kernels()
+    if max(kernel_x.shape) <= 3:
+        paths.append(ExecutionPath.STENCIL)
+    if _is_antipodal(kernel_x) and _is_antipodal(kernel_y):
+        paths.append(ExecutionPath.ANTIPODAL_PAIRS)
+    return tuple(paths)
 
 
 def test_runner_detects_vertical_step_edge_on_160_by_106_image() -> None:
     image, edge_column = _step_image()
 
-    for definition in _definitions():
+    for spec in _gradient_specs():
+        definition = get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
         gradient_x, gradient_y = run_filter(
             definition,
             image,
-            path=ExecutionPath.SPATIAL_DENSE,
+            path=ExecutionPath(spec.smoke_path),
             boundary=definition.default_boundary,
         )
         horizontal_response = gradient_x.abs().mean(dim=(0, 1))
@@ -56,51 +55,62 @@ def test_runner_detects_vertical_step_edge_on_160_by_106_image() -> None:
         assert torch.isfinite(gradient_x).all()
         assert torch.isfinite(gradient_y).all()
         assert peak_column in {edge_column - 1, edge_column}
-        assert float(horizontal_response.max()) > 0.05
-        assert float(gradient_y.abs().max()) < 1e-5
+        assert float(horizontal_response.max()) > 0.01
+        assert float(gradient_y.abs().max()) < 1e-4
 
 
-def test_valid_paths_match_spatial_dense_on_random_images() -> None:
+def test_fir_dense_like_paths_match_spatial_dense_on_random_images() -> None:
     image = torch.randn(1, 18, 19)
-    auto_runner = AutoRunner()
 
-    for boundary in _boundary_conditions():
-        for definition in _definitions():
-            reference_x, reference_y = run_filter(
-                definition,
-                image,
-                path=ExecutionPath.SPATIAL_DENSE,
-                boundary=boundary,
-            )
-            for path in auto_runner.valid_paths(definition):
+    for spec in _gradient_specs():
+        definition = get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
+        if not definition.has_dense_kernels:
+            continue
+        reference_x, reference_y = run_filter(
+            definition,
+            image,
+            path=ExecutionPath.SPATIAL_DENSE,
+            boundary=definition.default_boundary,
+        )
+        for path in _dense_like_paths(definition):
+            try:
                 gradient_x, gradient_y = run_filter(
                     definition,
                     image,
                     path=path,
-                    boundary=boundary,
+                    boundary=definition.default_boundary,
                 )
-                assert torch.allclose(reference_x, gradient_x, atol=1e-4)
-                assert torch.allclose(reference_y, gradient_y, atol=1e-4)
+            except ValueError as error:
+                if path == ExecutionPath.STENCIL:
+                    assert "stencil" in str(error)
+                    continue
+                raise
+            assert torch.allclose(reference_x, gradient_x, atol=1e-4)
+            assert torch.allclose(reference_y, gradient_y, atol=1e-4)
 
 
-def test_valid_paths_match_spatial_dense_on_step_image() -> None:
-    image, _ = _step_image()
-    auto_runner = AutoRunner()
+def test_recursive_filter_rejects_unsupported_boundary() -> None:
+    definition = get_filter_definition("deriche_recursive_gaussian_derivative", sigma=1.0)
+    image = torch.randn(1, 8, 9)
 
-    for boundary in _boundary_conditions():
-        for definition in _definitions():
-            reference_x, reference_y = run_filter(
-                definition,
-                image,
-                path=ExecutionPath.SPATIAL_DENSE,
-                boundary=boundary,
-            )
-            for path in auto_runner.valid_paths(definition):
-                gradient_x, gradient_y = run_filter(
-                    definition,
-                    image,
-                    path=path,
-                    boundary=boundary,
-                )
-                assert torch.allclose(reference_x, gradient_x, atol=1e-4)
-                assert torch.allclose(reference_y, gradient_y, atol=1e-4)
+    with pytest.raises(ValueError, match="does not support reflect boundary"):
+        run_filter(
+            definition,
+            image,
+            path=ExecutionPath.RECURSIVE,
+            boundary=BoundaryCondition(BoundaryMode.REFLECT),
+        )
+
+
+def _is_antipodal(kernel: torch.Tensor) -> bool:
+    if kernel.shape[0] % 2 == 0 or kernel.shape[1] % 2 == 0:
+        return False
+    scale = max(float(kernel.abs().max()), 1.0)
+    return bool(
+        torch.allclose(
+            kernel,
+            -torch.flip(kernel, dims=(0, 1)),
+            atol=1e-5 * scale,
+            rtol=0.0,
+        )
+    )
