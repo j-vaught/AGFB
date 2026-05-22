@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import torch
@@ -78,6 +79,64 @@ def run_orientation_bank(
     )
 
 
+def orientation_angles(
+    angle_count: int,
+    *,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | str | None = None,
+) -> torch.Tensor:
+    """Return `angle_count` evenly spaced unsigned orientations in `[0, pi)`."""
+    angle_count = int(angle_count)
+    if angle_count < 1:
+        raise ValueError("angle_count must be >= 1")
+    return torch.linspace(0.0, math.pi, steps=angle_count + 1, dtype=dtype, device=device)[:-1]
+
+
+def steer_gradient(
+    gradient_x: torch.Tensor,
+    gradient_y: torch.Tensor,
+    angles: torch.Tensor | Sequence[float],
+    *,
+    definition_name: str = "steered_gradient",
+) -> OrientationBankResult:
+    """Project a `(gradient_x, gradient_y)` pair onto an orientation angle grid."""
+    gradient_x = check_input(gradient_x)
+    gradient_y = check_input(gradient_y)
+    if gradient_x.shape != gradient_y.shape:
+        raise ValueError("gradient_x and gradient_y must have matching shapes")
+    angle_tensor = _orientation_angle_tensor(
+        angles,
+        dtype=gradient_x.dtype,
+        device=gradient_x.device,
+    )
+    cosines = torch.cos(angle_tensor).view(1, -1, 1, 1)
+    sines = torch.sin(angle_tensor).view(1, -1, 1, 1)
+    responses = gradient_x.unsqueeze(1) * cosines + gradient_y.unsqueeze(1) * sines
+    return OrientationBankResult(
+        responses=responses.contiguous(),
+        angles=angle_tensor.contiguous(),
+        definition_name=definition_name,
+    )
+
+
+def run_steered_filter_bank(
+    definition: GradientFilterDefinition,
+    image: torch.Tensor,
+    *,
+    angles: torch.Tensor | Sequence[float],
+    path: ExecutionPath | str,
+    boundary: BoundaryCondition | None = None,
+) -> OrientationBankResult:
+    """Run a normal gradient filter and return first-order steered responses."""
+    gradient_x, gradient_y = run_filter(definition, image, path=path, boundary=boundary)
+    return steer_gradient(
+        gradient_x,
+        gradient_y,
+        angles,
+        definition_name=f"{definition.name}_steered",
+    )
+
+
 def collapse_orientation_bank(
     result: OrientationBankResult,
     mode: str = "max_projection",
@@ -149,6 +208,10 @@ class _FilterRunner:
         implementation = definition.require_implementation()
         if implementation.kind == FilterImplementationKind.ORIENTATION_BANK:
             raise ValueError("orientation-bank definitions must be run with run_orientation_bank")
+        if implementation.kind == FilterImplementationKind.RIESZ:
+            if selected_path != ExecutionPath.FFT:
+                raise ValueError("riesz filters require the fft path")
+            return _riesz_transform(image, definition)
 
         if selected_path == ExecutionPath.SEPARABLE:
             _require_separable(definition, selected_path)
@@ -659,6 +722,26 @@ def _resolve_execution(
     return selected_path, boundary
 
 
+def _orientation_angle_tensor(
+    angles: torch.Tensor | Sequence[float],
+    *,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> torch.Tensor:
+    angle_tensor = torch.as_tensor(angles, dtype=dtype, device=device).clone().detach()
+    if angle_tensor.ndim != 1:
+        raise ValueError("angles must be 1-D")
+    if angle_tensor.numel() == 0:
+        raise ValueError("angles must not be empty")
+    if not bool(torch.isfinite(angle_tensor).all().item()):
+        raise ValueError("angles must contain only finite values")
+    if bool((angle_tensor < 0).any().item()) or bool((angle_tensor >= math.pi).any().item()):
+        raise ValueError("angles must be in [0, pi)")
+    if angle_tensor.numel() > 1 and not bool((angle_tensor[1:] > angle_tensor[:-1]).all().item()):
+        raise ValueError("angles must be strictly increasing")
+    return angle_tensor
+
+
 def _require_separable(definition: GradientFilterDefinition, path: ExecutionPath) -> None:
     if not definition.has_separable_kernels:
         raise ValueError(f"{path.value} path requires separable kernels for {definition.name}")
@@ -1000,6 +1083,34 @@ def _perona_malik_conduction(
     if mode == "reciprocal":
         return 1.0 / (1.0 + scaled.square())
     raise ValueError(f"unsupported Perona-Malik conduction {mode!r}")
+
+
+def _riesz_transform(
+    image: torch.Tensor,
+    definition: GradientFilterDefinition,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    epsilon = _require_float(definition.require_implementation().riesz_epsilon)
+    batch, height, width = image.shape
+    spectrum = torch_fft.fft2(image)
+    frequency_y = torch.fft.fftfreq(height, device=image.device, dtype=image.dtype).view(
+        1,
+        height,
+        1,
+    )
+    frequency_x = torch.fft.fftfreq(width, device=image.device, dtype=image.dtype).view(
+        1,
+        1,
+        width,
+    )
+    radius = torch.sqrt(frequency_x.square() + frequency_y.square()).clamp_min(epsilon)
+    zero = torch.zeros((1, height, width), dtype=image.dtype, device=image.device)
+    multiplier_x = torch.complex(zero, -frequency_x / radius)
+    multiplier_y = torch.complex(zero, -frequency_y / radius)
+    multiplier_x[..., 0, 0] = 0.0
+    multiplier_y[..., 0, 0] = 0.0
+    riesz_x = torch_fft.ifft2(spectrum * multiplier_x.expand(batch, -1, -1)).real
+    riesz_y = torch_fft.ifft2(spectrum * multiplier_y.expand(batch, -1, -1)).real
+    return riesz_x.contiguous(), riesz_y.contiguous()
 
 
 def _require_tensor(tensor: torch.Tensor | None) -> torch.Tensor:

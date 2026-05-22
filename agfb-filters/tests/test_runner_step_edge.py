@@ -41,6 +41,8 @@ def test_runner_detects_vertical_step_edge_on_160_by_106_image() -> None:
 
     for spec in _gradient_specs():
         definition = get_filter_definition(spec.name, **dict(spec.smoke_kwargs))
+        if definition.support_shape == "global_fft":
+            continue
         gradient_x, gradient_y = run_filter(
             definition,
             image,

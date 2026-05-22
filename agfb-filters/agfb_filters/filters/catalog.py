@@ -39,9 +39,11 @@ _FILTER_MODULES = (
     "agfb_filters.filters.sparse",
     "agfb_filters.filters.box",
     "agfb_filters.filters.recursive",
+    "agfb_filters.filters.riesz",
     "agfb_filters.filters.nonlinear",
     "agfb_filters.filters.iterative",
     "agfb_filters.filters.orientation_bank",
+    "agfb_filters.filters.orientable",
 )
 
 _FILTER_CORE_EXPORTS = {
@@ -56,12 +58,16 @@ _FILTER_CORE_EXPORTS = {
     "define_nonlinear_window_filter": "agfb_filters.filters.definitions",
     "define_orientation_bank_filter": "agfb_filters.filters.definitions",
     "define_recursive_filter": "agfb_filters.filters.definitions",
+    "define_riesz_filter": "agfb_filters.filters.definitions",
     "define_separable_filter": "agfb_filters.filters.definitions",
     "define_sparse_offset_filter": "agfb_filters.filters.definitions",
     "get_filter_definition": "agfb_filters.filters.registry",
     "get_filter_registration": "agfb_filters.filters.registry",
+    "multiscale_gaussian_derivative_orientation_banks": "agfb_filters.filters.orientable",
+    "recursive_gaussian_derivative_orientation_bank": "agfb_filters.filters.orientable",
     "register_filter": "agfb_filters.filters.registry",
     "registered_filters": "agfb_filters.filters.registry",
+    "riesz_orientation_bank": "agfb_filters.filters.orientable",
     "shipped_filter_specs": "agfb_filters.filters.catalog",
 }
 
@@ -72,8 +78,11 @@ _RUNTIME_EXPORTS = {
     "ExecutionPath": "agfb_filters.runtime.execution",
     "OrientationBankResult": "agfb_filters.runtime.runner",
     "collapse_orientation_bank": "agfb_filters.runtime.runner",
+    "orientation_angles": "agfb_filters.runtime.runner",
     "run_filter": "agfb_filters.runtime.runner",
     "run_orientation_bank": "agfb_filters.runtime.runner",
+    "run_steered_filter_bank": "agfb_filters.runtime.runner",
+    "steer_gradient": "agfb_filters.runtime.runner",
 }
 
 

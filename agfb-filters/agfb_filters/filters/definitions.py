@@ -21,6 +21,7 @@ TensorLike2D = torch.Tensor | Sequence[Sequence[float]]
 TensorLikeOffsets = torch.Tensor | Sequence[tuple[int, int]] | Sequence[Sequence[int]]
 _DEFAULT_CUSTOM_BOUNDARY = BoundaryCondition(BoundaryMode.REPLICATE)
 _DEFAULT_REFLECT_BOUNDARY = BoundaryCondition(BoundaryMode.REFLECT)
+_DEFAULT_CIRCULAR_BOUNDARY = BoundaryCondition(BoundaryMode.CIRCULAR)
 
 
 class FilterImplementationKind(StrEnum):
@@ -33,6 +34,7 @@ class FilterImplementationKind(StrEnum):
     NONLINEAR_WINDOW = "nonlinear_window"
     ITERATIVE = "iterative"
     ORIENTATION_BANK = "orientation_bank"
+    RIESZ = "riesz"
 
 
 @dataclass(frozen=True)
@@ -63,6 +65,7 @@ class GradientFilterImplementation:
     iterative_derivative_radius: int | None = None
     orientation_kernels: torch.Tensor | None = None
     angles: torch.Tensor | None = None
+    riesz_epsilon: float | None = None
 
     def __post_init__(self) -> None:
         kind = (
@@ -104,6 +107,8 @@ class GradientFilterImplementation:
             )
         elif kind == FilterImplementationKind.ORIENTATION_BANK:
             _validate_orientation_bank_implementation(self)
+        elif kind == FilterImplementationKind.RIESZ:
+            _validate_positive_float(self.riesz_epsilon, name="riesz_epsilon")
 
 
 @dataclass(frozen=True)
@@ -629,6 +634,39 @@ def define_orientation_bank_filter(
     )
 
 
+def define_riesz_filter(
+    *,
+    name: str,
+    default_boundary: BoundaryCondition = _DEFAULT_CIRCULAR_BOUNDARY,
+    epsilon: float = 1.0e-12,
+    metadata: Mapping[str, MetadataValue] | None = None,
+    parameters: Mapping[str, ParameterValue] | None = None,
+    references: tuple[str, ...] = (),
+    supported_boundaries: tuple[BoundaryMode | str, ...] = (BoundaryMode.CIRCULAR,),
+) -> GradientFilterDefinition:
+    """Create a first-order Riesz transform vector filter definition."""
+    epsilon = _validate_positive_float(epsilon, name="epsilon")
+    merged_parameters: dict[str, ParameterValue] = {"epsilon": float(epsilon)}
+    if parameters is not None:
+        merged_parameters.update(parameters)
+    return GradientFilterDefinition(
+        name=name,
+        default_boundary=default_boundary,
+        implementation=GradientFilterImplementation(
+            kind=FilterImplementationKind.RIESZ,
+            riesz_epsilon=epsilon,
+        ),
+        support="fft",
+        symmetry="odd",
+        metadata={} if metadata is None else metadata,
+        operator_family="riesz_transform",
+        support_shape="global_fft",
+        parameters=merged_parameters,
+        references=references,
+        supported_boundaries=_validated_supported_boundaries(supported_boundaries),
+    )
+
+
 def dense_kernels_from_separable(
     smooth_kernel_1d: torch.Tensor | None,
     derivative_kernel_1d: torch.Tensor | None,
@@ -903,6 +941,7 @@ def _definition_fingerprint(definition: GradientFilterDefinition) -> str:
         "iterative_kappa": implementation.iterative_kappa,
         "iterative_conduction": implementation.iterative_conduction,
         "iterative_derivative_radius": implementation.iterative_derivative_radius,
+        "riesz_epsilon": implementation.riesz_epsilon,
     }
     hasher.update(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
     for label, tensor in (

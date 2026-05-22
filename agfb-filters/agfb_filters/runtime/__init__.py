@@ -12,8 +12,11 @@ _EXPORT_MODULES = {
     "ExecutionPath": "agfb_filters.runtime.execution",
     "OrientationBankResult": "agfb_filters.runtime.runner",
     "collapse_orientation_bank": "agfb_filters.runtime.runner",
+    "orientation_angles": "agfb_filters.runtime.runner",
     "run_filter": "agfb_filters.runtime.runner",
     "run_orientation_bank": "agfb_filters.runtime.runner",
+    "run_steered_filter_bank": "agfb_filters.runtime.runner",
+    "steer_gradient": "agfb_filters.runtime.runner",
 }
 
 __all__ = sorted(_EXPORT_MODULES)
