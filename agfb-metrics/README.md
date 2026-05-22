@@ -1,8 +1,7 @@
 # agfb-metrics
 
-Batched, GPU-accelerated benchmark metrics for the Analytical Gradient Filter
-Benchmark (AGFB) suite.
-Implements ten benchmark metrics:
+Batched benchmark metrics for the Analytical Gradient Filter Benchmark (AGFB)
+suite.
 
 | Metric | Meaning |
 |--------|---------|
@@ -17,23 +16,16 @@ Implements ten benchmark metrics:
 | Noise gain | `std(|grad_filter|)_F / sigma_n` on flat regions |
 | Tail spurious gradient | 99th-percentile `|grad_filter|` on flat regions |
 
-For all metrics, smaller-is-better.
-
 ## Layout
 
 - `agfb_metrics/metrics/` contains metric definitions and shared metric
   helpers.
 
-This package intentionally does not include benchmark orchestration, seed
-sweeps, or multi-condition aggregation. Those belong in the benchmark harness
-that calls these gradient metric functions.
-
 ## Conventions
 
 - Input `(B, H, W)` float32 gradient tensors `g_x`, `g_y` (filter output and
   ground truth), on the same device.
-- Output is a length-`B` float32 tensor - one metric value per image. The
-  calling benchmark harness can aggregate over seed, scene, and condition.
+- Output is a length-`B` float32 tensor - one metric value per image.
 - Masks (`signal`, `flat`) are computed from the true gradient field by
   `agfb_metrics.metrics.base.masks` and follow the Section 1.1 definition
   (inward-eroded background mask, dilate 8 px by default - matches the
