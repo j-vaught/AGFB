@@ -34,8 +34,8 @@ from typing import Literal
 
 import torch
 
-from cpgf_metrics._cross_edge_profile import cross_edge_profile
-from cpgf_metrics.base import check_grad_pair, magnitude, ridge_mask_from_truth
+from agfb_metrics._cross_edge_profile import cross_edge_profile
+from agfb_metrics.base import check_grad_pair, magnitude, ridge_mask_from_truth
 
 
 def _parabolic_subpixel_offset(

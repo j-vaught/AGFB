@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from cpgf_metrics.a3_tail_vector_error import a3_tail_vector_error
+from agfb_metrics.a3_tail_vector_error import a3_tail_vector_error
 
 
 def test_matches_numpy_percentile_on_uniform_errors() -> None:

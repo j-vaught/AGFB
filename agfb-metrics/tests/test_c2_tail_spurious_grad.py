@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from cpgf_metrics.c2_tail_spurious_grad import c2_tail_spurious_grad
+from agfb_metrics.c2_tail_spurious_grad import c2_tail_spurious_grad
 
 
 def test_matches_numpy_percentile() -> None:

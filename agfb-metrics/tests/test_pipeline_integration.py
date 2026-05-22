@@ -1,8 +1,8 @@
-"""End-to-end integration with cpgf-generators, cpgf-filters, and the
+"""End-to-end integration with agfb-generators, agfb-filters, and the
 existing PGF_paper prototype.
 
 Checks:
-  1. cpgf_metrics.masks()['signal'] is bit-identical to the prototype's
+  1. agfb_metrics.masks()['signal'] is bit-identical to the prototype's
      mini.masks()['signal'] on the same single-image truth field.
   2. A1, A2, A3, B3 produce expected signs / orders of magnitude on a clean
      smoothed_step processed by central_difference, sobel_3, DoG(sigma=4).
@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from cpgf_metrics import (
+from agfb_metrics import (
     a1_nrmse,
     a2_angular_mae,
     a3_tail_vector_error,
@@ -33,8 +33,8 @@ from cpgf_metrics import (
 )
 
 _PROTOTYPES_DIR = Path("/Users/user/Documents/New project/PGF_paper/benchmark/prototypes")
-_GENERATORS_DIR = Path("/Users/user/Documents/New project/cpgf-generators")
-_FILTERS_DIR = Path("/Users/user/Documents/New project/cpgf-filters")
+_GENERATORS_DIR = Path("/Users/user/Documents/New project/agfb-generators")
+_FILTERS_DIR = Path("/Users/user/Documents/New project/agfb-filters")
 
 
 @pytest.fixture(scope="module")
@@ -53,25 +53,66 @@ def proto():
 @pytest.fixture(scope="module")
 def gens():
     if not _GENERATORS_DIR.exists():
-        pytest.skip(f"cpgf-generators not present at {_GENERATORS_DIR}")
+        pytest.skip(f"agfb-generators not present at {_GENERATORS_DIR}")
     sys.path.insert(0, str(_GENERATORS_DIR))
     try:
-        from cpgf_generators import smoothed_step  # type: ignore[import-not-found]
+        from agfb_generators import (
+            smoothed_step as agfb_smoothed_step,  # type: ignore[import-not-found]
+        )
     finally:
         sys.path.pop(0)
+
+    def smoothed_step(
+        height: int,
+        width: int,
+        *,
+        theta_rad: float,
+        sigma_e: float,
+        device: torch.device,
+    ):
+        return agfb_smoothed_step(
+            height,
+            width,
+            angle_rad=theta_rad,
+            edge_sigma=sigma_e,
+            device=device,
+        )
+
     return {"smoothed_step": smoothed_step}
 
 
 @pytest.fixture(scope="module")
 def filters():
     if not _FILTERS_DIR.exists():
-        pytest.skip(f"cpgf-filters not present at {_FILTERS_DIR}")
+        pytest.skip(f"agfb-filters not present at {_FILTERS_DIR}")
     sys.path.insert(0, str(_FILTERS_DIR))
     try:
-        from cpgf_filters import DoG, central_difference, sobel_3  # type: ignore[import-not-found]
+        from agfb_filters import (  # type: ignore[import-not-found]
+            BoundaryCondition,
+            BoundaryMode,
+            DerivativeOfGaussian,
+            central_difference,
+            sobel_3,
+        )
     finally:
         sys.path.pop(0)
-    return {"central_difference": central_difference, "sobel_3": sobel_3, "DoG": DoG}
+
+    boundary = BoundaryCondition(BoundaryMode.REPLICATE)
+
+    def run_central_difference(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        return central_difference(image, path="separable", boundary=boundary)
+
+    def run_sobel_3(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        return sobel_3(image, path="separable", boundary=boundary)
+
+    class DoG:
+        def __init__(self, sigma: float) -> None:
+            self._filter = DerivativeOfGaussian(sigma=sigma)
+
+        def apply(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            return self._filter.apply(image, path="separable", boundary=boundary)
+
+    return {"central_difference": run_central_difference, "sobel_3": run_sobel_3, "DoG": DoG}
 
 
 def test_signal_mask_matches_prototype(proto) -> None:

@@ -1,4 +1,4 @@
-"""Shared helpers for the CPGF benchmark metrics.
+"""Shared helpers for the Analytical Gradient Filter Benchmark metrics.
 
 All metrics consume the same five inputs:
     g_x, g_y         : (B, H, W) float32 filter output

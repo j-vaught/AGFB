@@ -1,6 +1,7 @@
-# cpgf-metrics
+# agfb-metrics
 
-Batched, GPU-accelerated benchmark metrics for the CPGF gradient-filter suite.
+Batched, GPU-accelerated benchmark metrics for the Analytical Gradient Filter
+Benchmark (AGFB) suite.
 Implements the ten metrics defined in `Benchmark Specs/01_3_noise_sweep.typ`:
 
 | Axis | Metric | Meaning |
@@ -25,7 +26,7 @@ For all metrics, smaller-is-better.
 - Output is a length-`B` float32 tensor — one metric value per image. The
   sweep runner aggregates over (seed × scene × condition).
 - Masks (`signal`, `flat`) are computed from the true gradient field by
-  `cpgf_metrics.base.masks` and follow the §1.1 definition (inward-eroded
+  `agfb_metrics.base.masks` and follow the §1.1 definition (inward-eroded
   background mask, dilate 8 px by default — matches the existing prototype).
 
 ## Workflow

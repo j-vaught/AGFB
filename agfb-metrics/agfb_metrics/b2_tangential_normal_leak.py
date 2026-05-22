@@ -7,7 +7,7 @@ At each `p in E` with true unit normal `n̂_p` and tangent `t̂_p`:
     B_2 = 10 log10(E_t / E_n)
 
 Square-support filters at oblique edges leak energy into the tangential
-direction; circular-support filters (CPGF, DoG, FreemanAdelson) do not.
+direction; circular-support reference filters in the AGFB suite do not.
 More-negative is better. Tangent is the 90 deg CCW rotation of the normal:
 `(t_x, t_y) = (-n_y, n_x)`.
 
@@ -24,7 +24,7 @@ import math
 
 import torch
 
-from cpgf_metrics.base import check_grad_pair, unit_normal_from_truth
+from agfb_metrics.base import check_grad_pair, unit_normal_from_truth
 
 
 def b2_tangential_normal_leak(

@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 import torch
 
-from cpgf_metrics.b1_localization_offset import b1_localization_offset
+from agfb_metrics.b1_localization_offset import b1_localization_offset
 
 
 def _gaussian_step_gx(H: int, W: int, sigma: float, x0: float) -> torch.Tensor:

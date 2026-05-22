@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import torch
 
-from cpgf_metrics.base import check_grad_pair, magnitude
+from agfb_metrics.base import check_grad_pair, magnitude
 
 
 def a1_nrmse(

@@ -7,7 +7,7 @@ import math
 import pytest
 import torch
 
-from cpgf_metrics.b2_tangential_normal_leak import b2_tangential_normal_leak
+from agfb_metrics.b2_tangential_normal_leak import b2_tangential_normal_leak
 
 
 def test_perfectly_normal_filter_is_very_negative() -> None:

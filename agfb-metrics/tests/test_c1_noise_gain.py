@@ -7,7 +7,7 @@ import math
 import pytest
 import torch
 
-from cpgf_metrics.c1_noise_gain import c1_noise_gain
+from agfb_metrics.c1_noise_gain import c1_noise_gain
 
 
 def test_half_normal_gain_matches_theory() -> None:

@@ -1,10 +1,10 @@
-"""Tests for cpgf_metrics.base helpers."""
+"""Tests for agfb_metrics.base helpers."""
 
 from __future__ import annotations
 
 import torch
 
-from cpgf_metrics.base import (
+from agfb_metrics.base import (
     magnitude,
     masks,
     ridge_mask_from_truth,

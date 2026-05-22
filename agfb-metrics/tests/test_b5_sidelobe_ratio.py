@@ -6,7 +6,7 @@ import math
 
 import torch
 
-from cpgf_metrics.b5_sidelobe_ratio import b5_sidelobe_ratio
+from agfb_metrics.b5_sidelobe_ratio import b5_sidelobe_ratio
 
 
 def _gaussian_step_gx(H: int, W: int, sigma: float, x0: float) -> torch.Tensor:

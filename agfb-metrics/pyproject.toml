@@ -1,7 +1,7 @@
 [project]
-name = "cpgf-metrics"
+name = "agfb-metrics"
 version = "0.0.1"
-description = "Batched, GPU-accelerated benchmark metrics (A1-A3, B1-B5, C1-C2) for the CPGF gradient-filter suite"
+description = "Batched, GPU-accelerated benchmark metrics (A1-A3, B1-B5, C1-C2) for the Analytical Gradient Filter Benchmark (AGFB) suite"
 authors = [{ name = "J.C. Vaught" }]
 requires-python = ">=3.11"
 

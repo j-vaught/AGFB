@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import torch
 
-from cpgf_metrics._cross_edge_profile import cross_edge_profile
-from cpgf_metrics.base import check_grad_pair, magnitude
+from agfb_metrics._cross_edge_profile import cross_edge_profile
+from agfb_metrics.base import check_grad_pair, magnitude
 
 
 def _fwhm_one_profile(prof: torch.Tensor, t: torch.Tensor) -> float | None:
