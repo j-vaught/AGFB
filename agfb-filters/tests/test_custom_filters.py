@@ -118,3 +118,20 @@ def test_custom_filter_validation_requires_padding_for_even_dense_kernels() -> N
 def test_polynomial_filter_validation_rejects_underdetermined_fits() -> None:
     with pytest.raises(ValueError, match="underdetermined"):
         cpgf_definition(radius=1, degree=2)
+
+
+def test_cpgf_large_high_degree_fit_is_well_conditioned() -> None:
+    definition = cpgf_definition(radius=200, degree=11)
+    kernel_x, kernel_y = definition.dense_kernels()
+
+    coords = torch.arange(-200, 201, dtype=kernel_x.dtype)
+    row_grid, column_grid = torch.meshgrid(coords, coords, indexing="ij")
+
+    assert kernel_x.shape == (401, 401)
+    assert kernel_y.shape == (401, 401)
+    assert torch.isfinite(kernel_x).all()
+    assert torch.isfinite(kernel_y).all()
+    assert torch.isclose((kernel_x * column_grid).sum(), torch.tensor(1.0))
+    assert torch.isclose((kernel_y * row_grid).sum(), torch.tensor(1.0))
+    assert torch.isclose((kernel_x * row_grid).sum(), torch.tensor(0.0), atol=1e-6)
+    assert torch.isclose((kernel_y * column_grid).sum(), torch.tensor(0.0), atol=1e-6)

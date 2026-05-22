@@ -61,7 +61,10 @@ def build_polynomial_gradient_kernels(
         dtype=torch.float64,
         device=compute_device,
     )
-    design_matrix = row_offsets[:, None].pow(row_powers) * column_offsets[:, None].pow(
+    coordinate_scale = float(radius)
+    row_fit_offsets = row_offsets / coordinate_scale
+    column_fit_offsets = column_offsets / coordinate_scale
+    design_matrix = row_fit_offsets[:, None].pow(row_powers) * column_fit_offsets[:, None].pow(
         column_powers
     )
     matrix_rank = int(torch.linalg.matrix_rank(design_matrix).item())
@@ -80,6 +83,6 @@ def build_polynomial_gradient_kernels(
     kernel_size = 2 * radius + 1
     kernel_x = torch.zeros(kernel_size, kernel_size, dtype=torch.float64, device=compute_device)
     kernel_y = torch.zeros(kernel_size, kernel_size, dtype=torch.float64, device=compute_device)
-    kernel_x[support_mask] = weights_by_basis[column_linear_index]
-    kernel_y[support_mask] = weights_by_basis[row_linear_index]
+    kernel_x[support_mask] = weights_by_basis[column_linear_index] / coordinate_scale
+    kernel_y[support_mask] = weights_by_basis[row_linear_index] / coordinate_scale
     return kernel_x.to(dtype=torch.float32), kernel_y.to(dtype=torch.float32)
