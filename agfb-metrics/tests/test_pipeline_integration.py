@@ -150,11 +150,11 @@ def test_phase1_clean_smoothed_step(gens, filters) -> None:
     dog_gx, dog_gy = filters["DoG"](sigma=4.0).apply(I_b)
     bias_dog = magnitude_bias(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
     assert bias_dog < bias_cd, (
-        "DoG(σ=4) on a σ=2 step should under-read more than central_difference"
+        "DoG(sigma=4) on a sigma=2 step should under-read more than central_difference"
     )
 
     # Profile-shape metrics on a clean step: central_difference is
-    # well-localized and narrow; DoG(σ=4) is widely smoothed.
+    # well-localized and narrow; DoG(sigma=4) is widely smoothed.
     localization_cd = localization_offset(cdx, cdy, gx_t, gy_t, signal)[0].item()
     localization_dog = localization_offset(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
     assert 0.0 <= localization_cd < 1.0
@@ -162,7 +162,7 @@ def test_phase1_clean_smoothed_step(gens, filters) -> None:
 
     fwhm_cd = edge_fwhm(cdx, cdy, gx_t, gy_t, signal)[0].item()
     fwhm_dog = edge_fwhm(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
-    assert fwhm_dog > fwhm_cd, "DoG(σ=4) should widen the cross-edge response"
+    assert fwhm_dog > fwhm_cd, "DoG(sigma=4) should widen the cross-edge response"
 
     leak_cd = tangential_normal_leak(cdx, cdy, gx_t, gy_t, signal)[0].item()
     assert leak_cd < -10.0, f"oblique-edge T-to-N leak {leak_cd:.1f} dB looks too high"

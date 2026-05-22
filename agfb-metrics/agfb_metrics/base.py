@@ -7,7 +7,7 @@ All metrics consume the same five inputs:
     flat_mask        : (B, H, W) bool, flat background pixels (axis C)
 
 `masks(gx_t, gy_t)` constructs both masks from the truth field in one call,
-matching the §1.1 protocol used by the existing PGF_paper prototype.
+matching the Section 1.1 protocol used by the existing PGF_paper prototype.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def masks(
     * Signal mask: `|grad_true|(p) > rel_eps * max(|grad_true|)` per image.
     * Flat mask: complement of the signal mask, eroded inward by `dilate_px`
       pixels so that no flat pixel sits within the spatial support of an edge
-      pixel (matches the §1.1 protocol).
+      pixel (matches the Section 1.1 protocol).
 
     Bit-identical, per image, to the prototype `mini.masks(gx_t, gy_t)` (which
     operates on a single image at a time).
@@ -68,10 +68,10 @@ def unit_normal_from_truth(
     *,
     eps: float = 1e-12,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Unit normal `n̂ = grad_true / |grad_true|` on the truth field.
+    """Unit normal `n_hat = grad_true / |grad_true|` on the truth field.
 
     Returned as `(n_x, n_y)`, each `(B, H, W)`. Pixels with magnitude below
-    `eps` are returned as `(0, 0)` rather than left as NaN — callers must
+    `eps` are returned as `(0, 0)` rather than left as NaN - callers must
     restrict to the signal mask before using the result.
     """
     check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
@@ -94,9 +94,9 @@ def ridge_mask_from_truth(
     """Non-max-suppress `|grad_true|` along its own normal direction.
 
     A pixel `p` is a ridge pixel iff
-        |grad_true|(p) >= |grad_true|(p + step*n̂_p)  and
-        |grad_true|(p) >= |grad_true|(p - step*n̂_p)
-    where `n̂_p` is the unit normal at `p`. The two neighbour values are
+        |grad_true|(p) >= |grad_true|(p + step*n_hat_p)  and
+        |grad_true|(p) >= |grad_true|(p - step*n_hat_p)
+    where `n_hat_p` is the unit normal at `p`. The two neighbour values are
     bilinear-sampled via `grid_sample`, so the test is independent of the
     normal's quadrant.
 

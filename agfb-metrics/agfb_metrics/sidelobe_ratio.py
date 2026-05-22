@@ -8,8 +8,8 @@ the main lobe, compute the maximum value `|grad|_outside`, and form
     r_p = |grad|_outside / |grad|_peak
 
 The metric is `20/|E| * sum_p log10(r_p)`, in dB (the spec form). Pixels
-with no detectable side-lobe — i.e., the main lobe spans the whole
-`[-r_max, r_max]` window — are skipped, since the spec is silent on what
+with no detectable side-lobe - i.e., the main lobe spans the whole
+`[-r_max, r_max]` window - are skipped, since the spec is silent on what
 their `r_p` should be. Images with no usable edge pixels return NaN.
 """
 
@@ -52,7 +52,7 @@ def _sidelobe_ratio_one_profile(prof: torch.Tensor) -> float | None:
     if k_right < K - 1:
         outside_max = max(outside_max, float(prof[k_right + 1 :].max().item()))
     if outside_max <= 0.0:
-        return None  # nothing outside the main lobe; r=0 → -inf, skip
+        return None  # nothing outside the main lobe; r=0 -> -inf, skip
     return outside_max / peak
 
 

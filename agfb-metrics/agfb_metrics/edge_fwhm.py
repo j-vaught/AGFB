@@ -8,7 +8,7 @@ pixels. Sub-pixel crossings use linear interpolation between adjacent
 samples.
 
 Edge pixels whose profile never reaches half-peak on one or both sides
-within `[-r_max, r_max]` are skipped — the spec doesn't define FWHM in
+within `[-r_max, r_max]` are skipped - the spec doesn't define FWHM in
 that case. Images with no usable edge pixels return NaN.
 """
 

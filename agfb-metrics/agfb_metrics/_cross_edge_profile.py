@@ -1,10 +1,10 @@
 """Shared cross-edge profile sampler for edge-profile metrics.
 
-For each true edge pixel `p` with unit normal `n̂_p`, bilinearly sample a
-scalar field along `p + t * n̂_p` for `t in [-r_max, r_max]` with sample
+For each true edge pixel `p` with unit normal `n_hat_p`, bilinearly sample a
+scalar field along `p + t * n_hat_p` for `t in [-r_max, r_max]` with sample
 step `step`. Returns one `(N_edge, K)` profile tensor per image.
 
-Important: the signal mask is the §1.1 band mask (all pixels where
+Important: the signal mask is the Section 1.1 band mask (all pixels where
 `|grad_true|` exceeds threshold), not a thin ridge. For an off-ridge edge
 pixel `p`, the profile of `|grad_truth|` peaks at the *signed distance
 from p to the true edge crest along the normal*, not at `t = 0`. Localization
@@ -13,7 +13,7 @@ edge FWHM and side-lobe ratio measure intrinsic shape properties of the filter
 profile that do not depend on edge-pixel anchoring.
 
 Edge pixels near the image boundary fall back to `padding_mode='border'`
-rather than being dropped — §1.1 generators centre edges in the field of
+rather than being dropped - Section 1.1 generators centre edges in the field of
 view, so this is rarely exercised.
 """
 
@@ -40,8 +40,8 @@ def cross_edge_profile(
         field: (B, H, W) float32 scalar field to sample (typically
             `|grad_filter|` or `|grad_truth|`).
         g_x_t, g_y_t: (B, H, W) truth gradient components; used only to
-            define the per-pixel unit normal direction `n̂_p`.
-        signal_mask: (B, H, W) bool — true edge pixels.
+            define the per-pixel unit normal direction `n_hat_p`.
+        signal_mask: (B, H, W) bool - true edge pixels.
         r_max, step: cross-edge window half-width (pixels) and sample step.
 
     Returns `(profiles_per_image, t, t0_index)`:

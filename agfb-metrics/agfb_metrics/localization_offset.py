@@ -1,12 +1,12 @@
 """Localization offset (pixels).
 
-For each true edge pixel `p` with unit normal `n̂_p`, sample
-`|grad_filter|` along the perpendicular line `p + t * n̂_p` for
+For each true edge pixel `p` with unit normal `n_hat_p`, sample
+`|grad_filter|` along the perpendicular line `p + t * n_hat_p` for
 `t in [-r_max, r_max]`, locate the peak position to sub-pixel precision
 via parabolic refinement, and report the mean absolute offset across edge
 pixels.
 
-Two modes are supported because the §1.3 spec is ambiguous about which
+Two modes are supported because the Section 1.3 spec is ambiguous about which
 mask `E` to use:
 
 * `mode="truth_anchored"` (default) -- uses the band signal mask. Because
@@ -23,7 +23,7 @@ mask `E` to use:
 
 Both modes rank filters identically on noiseless input; the truth-anchored
 mode uses more pixels per image (a band has ~15x as many pixels as the
-ridge it surrounds), so it produces a tighter estimate in the §1.3 sweep.
+ridge it surrounds), so it produces a tighter estimate in the Section 1.3 sweep.
 
 With `step=0.5` and r_max=16, parabolic refinement is good to ~0.05 px.
 """

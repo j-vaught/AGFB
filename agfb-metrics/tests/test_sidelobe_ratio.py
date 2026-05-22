@@ -43,7 +43,7 @@ def test_clean_gaussian_has_no_sidelobe() -> None:
 
 
 def test_known_sidelobe_ratio() -> None:
-    """Satellite peak at 10% of main → 20*log10(0.1) = -20 dB."""
+    """Satellite peak at 10% of main -> 20*log10(0.1) = -20 dB."""
     H = W = 128
     gx_t = _gaussian_step_gx(H, W, sigma=2.0, x0=64.0)
     gy_t = torch.zeros_like(gx_t)

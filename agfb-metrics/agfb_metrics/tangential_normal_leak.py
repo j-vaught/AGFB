@@ -1,8 +1,8 @@
 """Tangential-to-normal leak (dB).
 
-At each `p in E` with true unit normal `n̂_p` and tangent `t̂_p`:
-    g_n(p) = grad_filter(p) . n̂_p
-    g_t(p) = grad_filter(p) . t̂_p
+At each `p in E` with true unit normal `n_hat_p` and tangent `t_hat_p`:
+    g_n(p) = grad_filter(p) . n_hat_p
+    g_t(p) = grad_filter(p) . t_hat_p
     E_n = <g_n^2>_E,  E_t = <g_t^2>_E
     leak ratio = 10 log10(E_t / E_n)
 
@@ -12,7 +12,7 @@ More-negative is better. Tangent is the 90 deg CCW rotation of the normal:
 `(t_x, t_y) = (-n_y, n_x)`.
 
 When `E_n` is zero (filter output identically zero on every edge pixel) the
-metric is returned as `-inf` since `E_t` is also zero in that case — the
+metric is returned as `-inf` since `E_t` is also zero in that case - the
 filter has no energy at all and the leak ratio is degenerate. The `B,`
 output dtype is float32, so the actual value is `-3.4028e+38`; the sweep
 aggregator should treat -inf and NaN as failure flags.

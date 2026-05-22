@@ -34,7 +34,7 @@ def test_zero_offset_when_filter_matches_truth() -> None:
 def test_known_offset_when_filter_is_shifted_step() -> None:
     """If the filter output is a step shifted by 2 pixels, every cross-edge
     profile peaks at t=+2 (filter peak is 2 px to the right of the true
-    edge), so the metric should report ≈ 2 pixels."""
+    edge), so the metric should report about 2 pixels."""
     H = W = 96
     gx_t = _gaussian_step_gx(H, W, sigma=2.0, x0=48.0)
     gx_f = _gaussian_step_gx(H, W, sigma=2.0, x0=50.0)
@@ -52,7 +52,7 @@ def test_ridge_mode_zero_when_filter_matches_truth() -> None:
 
 
 def test_ridge_mode_matches_truth_anchored_on_shifted_step() -> None:
-    """For a pure pixel shift, both modes report the same number — the
+    """For a pure pixel shift, both modes report the same number - the
     shift is constant across the whole band, so the truth-anchoring just
     subtracts a different per-pixel offset (and ridge mode has the truth
     offset = 0 by construction). Both should land near 2.0 px."""

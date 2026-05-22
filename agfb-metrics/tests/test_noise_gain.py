@@ -12,7 +12,7 @@ from agfb_metrics.noise_gain import noise_gain
 
 def test_half_normal_gain_matches_theory() -> None:
     """If gx is N(0, sigma^2) and gy is zero, |grad| = |gx| is half-normal with
-    std = sigma * sqrt(1 - 2/pi), so noise gain = sqrt(1 - 2/pi) ≈ 0.603."""
+    std = sigma * sqrt(1 - 2/pi), so noise gain = sqrt(1 - 2/pi) about 0.603."""
     torch.manual_seed(0)
     sigma_n = 0.7
     H = W = 256
@@ -26,7 +26,7 @@ def test_half_normal_gain_matches_theory() -> None:
 
 def test_rayleigh_gain_matches_theory() -> None:
     """If both gx and gy are N(0, sigma^2), |grad| is Rayleigh-distributed with
-    std = sigma * sqrt(2 - pi/2), so noise gain = sqrt(2 - pi/2) ≈ 0.655."""
+    std = sigma * sqrt(2 - pi/2), so noise gain = sqrt(2 - pi/2) about 0.655."""
     torch.manual_seed(1)
     sigma_n = 1.3
     H = W = 256

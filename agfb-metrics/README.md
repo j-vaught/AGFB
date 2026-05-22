@@ -23,11 +23,12 @@ For all metrics, smaller-is-better.
 
 - Input `(B, H, W)` float32 gradient tensors `g_x`, `g_y` (filter output and
   ground truth), on the same device.
-- Output is a length-`B` float32 tensor — one metric value per image. The
-  sweep runner aggregates over (seed × scene × condition).
+- Output is a length-`B` float32 tensor - one metric value per image. The
+  sweep runner aggregates over (seed x scene x condition).
 - Masks (`signal`, `flat`) are computed from the true gradient field by
-  `agfb_metrics.base.masks` and follow the §1.1 definition (inward-eroded
-  background mask, dilate 8 px by default — matches the existing prototype).
+  `agfb_metrics.base.masks` and follow the Section 1.1 definition
+  (inward-eroded background mask, dilate 8 px by default - matches the
+  existing prototype).
 
 ## Workflow
 
