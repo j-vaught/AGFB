@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from agfb_metrics.angular_mae import angular_mae
+from agfb_metrics.metrics.angular_mae import angular_mae
 
 
 def test_zero_degrees_when_aligned() -> None:

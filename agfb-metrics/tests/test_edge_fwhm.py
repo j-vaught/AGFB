@@ -7,7 +7,7 @@ import math
 import pytest
 import torch
 
-from agfb_metrics.edge_fwhm import edge_fwhm
+from agfb_metrics.metrics.edge_fwhm import edge_fwhm
 
 
 def _gaussian_step_gx(H: int, W: int, sigma: float, x0: float) -> torch.Tensor:

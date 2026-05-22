@@ -1,21 +1,22 @@
 """Batched, GPU-accelerated benchmark metrics for the AGFB suite."""
 
-from agfb_metrics.angular_mae import angular_mae
-from agfb_metrics.base import (
+from agfb_metrics.metrics import (
+    angular_mae,
+    edge_fwhm,
+    localization_offset,
     magnitude,
+    magnitude_bias,
     masks,
+    noise_gain,
+    nrmse,
     ridge_mask_from_truth,
+    sidelobe_ratio,
+    tail_spurious_grad,
+    tail_vector_error,
+    tangential_normal_leak,
     unit_normal_from_truth,
 )
-from agfb_metrics.edge_fwhm import edge_fwhm
-from agfb_metrics.localization_offset import localization_offset
-from agfb_metrics.magnitude_bias import magnitude_bias
-from agfb_metrics.noise_gain import noise_gain
-from agfb_metrics.nrmse import nrmse
-from agfb_metrics.sidelobe_ratio import sidelobe_ratio
-from agfb_metrics.tail_spurious_grad import tail_spurious_grad
-from agfb_metrics.tail_vector_error import tail_vector_error
-from agfb_metrics.tangential_normal_leak import tangential_normal_leak
+from agfb_metrics.runners import DEFAULT_METRICS, MetricSpec, run_all_metrics, run_metric_set
 
 __all__ = [
     "nrmse",
@@ -32,4 +33,8 @@ __all__ = [
     "masks",
     "ridge_mask_from_truth",
     "unit_normal_from_truth",
+    "MetricSpec",
+    "DEFAULT_METRICS",
+    "run_metric_set",
+    "run_all_metrics",
 ]

@@ -22,7 +22,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F  # noqa: N812
 
-from agfb_metrics.base import unit_normal_from_truth
+from agfb_metrics.metrics.base import unit_normal_from_truth
 
 
 def cross_edge_profile(

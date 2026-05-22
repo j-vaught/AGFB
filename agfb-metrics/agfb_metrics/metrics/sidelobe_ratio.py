@@ -19,8 +19,8 @@ import math
 
 import torch
 
-from agfb_metrics._cross_edge_profile import cross_edge_profile
-from agfb_metrics.base import check_grad_pair, magnitude
+from agfb_metrics.metrics._cross_edge_profile import cross_edge_profile
+from agfb_metrics.metrics.base import check_grad_pair, magnitude
 
 
 def _main_lobe_bounds(prof: torch.Tensor, k_peak: int) -> tuple[int, int]:

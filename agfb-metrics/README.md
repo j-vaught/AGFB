@@ -19,6 +19,16 @@ Implements ten benchmark metrics:
 
 For all metrics, smaller-is-better.
 
+## Layout
+
+- `agfb_metrics/metrics/` contains metric definitions and shared metric
+  helpers.
+- `agfb_metrics/runners/` contains orchestration code that runs metric sets.
+
+Frequency-response workflows should live in runners unless they introduce a
+new scalar definition. They should call the existing metric definitions rather
+than duplicate equivalent error, bias, or tail calculations.
+
 ## Conventions
 
 - Input `(B, H, W)` float32 gradient tensors `g_x`, `g_y` (filter output and
@@ -26,7 +36,7 @@ For all metrics, smaller-is-better.
 - Output is a length-`B` float32 tensor - one metric value per image. The
   sweep runner aggregates over (seed x scene x condition).
 - Masks (`signal`, `flat`) are computed from the true gradient field by
-  `agfb_metrics.base.masks` and follow the Section 1.1 definition
+  `agfb_metrics.metrics.base.masks` and follow the Section 1.1 definition
   (inward-eroded background mask, dilate 8 px by default - matches the
   existing prototype).
 

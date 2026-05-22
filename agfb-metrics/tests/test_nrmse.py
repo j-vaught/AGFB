@@ -7,7 +7,7 @@ import math
 import pytest
 import torch
 
-from agfb_metrics.nrmse import nrmse
+from agfb_metrics.metrics.nrmse import nrmse
 
 
 def test_zero_error_when_filter_matches_truth() -> None:

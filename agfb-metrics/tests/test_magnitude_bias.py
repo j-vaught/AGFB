@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from agfb_metrics.magnitude_bias import magnitude_bias
+from agfb_metrics.metrics.magnitude_bias import magnitude_bias
 
 
 def test_zero_bias_when_filter_matches_truth() -> None:

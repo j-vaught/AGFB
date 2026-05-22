@@ -7,7 +7,7 @@ import math
 import pytest
 import torch
 
-from agfb_metrics.tangential_normal_leak import tangential_normal_leak
+from agfb_metrics.metrics.tangential_normal_leak import tangential_normal_leak
 
 
 def test_perfectly_normal_filter_is_very_negative() -> None:
@@ -21,6 +21,14 @@ def test_perfectly_normal_filter_is_very_negative() -> None:
     mask = torch.ones(1, 16, 16, dtype=torch.bool)
     out = tangential_normal_leak(gx_t, gy_t, gx_t, gy_t, mask)
     assert out[0].item() < -100.0
+
+
+def test_exactly_normal_filter_returns_minus_inf() -> None:
+    gx_t = torch.tensor([[[1.0, 1.0], [1.0, 1.0]]])
+    gy_t = torch.zeros_like(gx_t)
+    mask = torch.ones_like(gx_t, dtype=torch.bool)
+    out = tangential_normal_leak(gx_t, gy_t, gx_t, gy_t, mask)
+    assert torch.isneginf(out[0])
 
 
 def test_perfectly_tangential_filter_is_very_positive() -> None:

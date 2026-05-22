@@ -7,8 +7,8 @@ import math
 import pytest
 import torch
 
-from agfb_metrics._cross_edge_profile import cross_edge_profile
-from agfb_metrics.base import magnitude
+from agfb_metrics.metrics._cross_edge_profile import cross_edge_profile
+from agfb_metrics.metrics.base import magnitude
 
 
 def _synth_step_field(H: int = 64, W: int = 64, sigma: float = 2.0, x0: float = 32.0):

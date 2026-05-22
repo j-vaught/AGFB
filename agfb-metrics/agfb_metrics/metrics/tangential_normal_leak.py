@@ -24,7 +24,7 @@ import math
 
 import torch
 
-from agfb_metrics.base import check_grad_pair, unit_normal_from_truth
+from agfb_metrics.metrics.base import check_grad_pair, unit_normal_from_truth
 
 
 def tangential_normal_leak(
@@ -58,6 +58,9 @@ def tangential_normal_leak(
         e_t = float((g_t[i][m] ** 2).mean())
         if e_n < eps:
             out[i] = float("-inf") if e_t < eps else float("inf")
+            continue
+        if e_t < eps:
+            out[i] = float("-inf")
             continue
         out[i] = 10.0 * math.log10(e_t / e_n)
     return out
