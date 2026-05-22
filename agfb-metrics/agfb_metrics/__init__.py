@@ -16,7 +16,6 @@ from agfb_metrics.metrics import (
     tangential_normal_leak,
     unit_normal_from_truth,
 )
-from agfb_metrics.runners import DEFAULT_METRICS, MetricSpec, run_all_metrics, run_metric_set
 
 __all__ = [
     "nrmse",
@@ -33,8 +32,4 @@ __all__ = [
     "masks",
     "ridge_mask_from_truth",
     "unit_normal_from_truth",
-    "MetricSpec",
-    "DEFAULT_METRICS",
-    "run_metric_set",
-    "run_all_metrics",
 ]

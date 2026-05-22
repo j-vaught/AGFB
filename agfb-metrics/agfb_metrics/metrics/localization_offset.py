@@ -1,9 +1,9 @@
 """Localization offset (pixels).
 
-For each true edge pixel `p` with unit normal `n_hat_p`, sample
+For each signal pixel `p` with unit normal `n_hat_p`, sample
 `|grad_filter|` along the perpendicular line `p + t * n_hat_p` for
 `t in [-r_max, r_max]`, locate the peak position to sub-pixel precision
-via parabolic refinement, and report the mean absolute offset across edge
+via parabolic refinement, and report the mean absolute offset across signal
 pixels.
 
 Two modes are supported because the Section 1.3 spec is ambiguous about which

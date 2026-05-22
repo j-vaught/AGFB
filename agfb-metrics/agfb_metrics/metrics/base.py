@@ -3,8 +3,8 @@
 All metrics consume the same five inputs:
     g_x, g_y         : (B, H, W) float32 filter output
     g_x_t, g_y_t     : (B, H, W) float32 ground-truth gradient field
-    signal_mask      : (B, H, W) bool, true edge pixels (axis A and B)
-    flat_mask        : (B, H, W) bool, flat background pixels (axis C)
+    signal_mask      : (B, H, W) bool, true-gradient signal pixels
+    flat_mask        : (B, H, W) bool, flat background pixels
 
 `masks(gx_t, gy_t)` constructs both masks from the truth field in one call,
 matching the Section 1.1 protocol used by the existing PGF_paper prototype.
@@ -43,8 +43,8 @@ def masks(
 
     * Signal mask: `|grad_true|(p) > rel_eps * max(|grad_true|)` per image.
     * Flat mask: complement of the signal mask, eroded inward by `dilate_px`
-      pixels so that no flat pixel sits within the spatial support of an edge
-      pixel (matches the Section 1.1 protocol).
+      pixels so that no flat pixel sits within the spatial support of a
+      signal pixel (matches the Section 1.1 protocol).
 
     Bit-identical, per image, to the prototype `mini.masks(gx_t, gy_t)` (which
     operates on a single image at a time).

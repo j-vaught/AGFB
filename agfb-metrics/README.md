@@ -6,13 +6,13 @@ Implements ten benchmark metrics:
 
 | Metric | Meaning |
 |--------|---------|
-| NRMSE | Headline error, normalised vector RMS on edge pixels |
-| Angular MAE | Mean angular error, degrees, on edge pixels |
-| Tail vector error | 95th-percentile per-pixel vector error on edge pixels |
-| Localization offset | Mean shift of `|grad|` peak from true edge, in pixels |
+| NRMSE | Headline error, normalised vector RMS on signal pixels |
+| Angular MAE | Mean angular error, degrees, on signal pixels |
+| Tail vector error | 95th-percentile per-pixel vector error on signal pixels |
+| Localization offset | Mean shift of `|grad|` peak from the true-gradient crest, in pixels |
 | Tangential-normal leak | `10 log10(E_t / E_n)`, tangential vs normal energy |
 | Magnitude bias | `<|grad_filter|> / <|grad_true|> - 1` (signed) |
-| Edge FWHM | Full-width-half-max of `|grad|` perpendicular to edge |
+| Edge FWHM | Full-width-half-max of `|grad|` perpendicular to the true-gradient crest |
 | Side-lobe ratio | Max-outside-main-lobe / peak, in dB |
 | Noise gain | `std(|grad_filter|)_F / sigma_n` on flat regions |
 | Tail spurious gradient | 99th-percentile `|grad_filter|` on flat regions |
@@ -23,18 +23,17 @@ For all metrics, smaller-is-better.
 
 - `agfb_metrics/metrics/` contains metric definitions and shared metric
   helpers.
-- `agfb_metrics/runners/` contains orchestration code that runs metric sets.
 
-Frequency-response workflows should live in runners unless they introduce a
-new scalar definition. They should call the existing metric definitions rather
-than duplicate equivalent error, bias, or tail calculations.
+This package intentionally does not include benchmark orchestration, seed
+sweeps, or multi-condition aggregation. Those belong in the benchmark harness
+that calls these gradient metric functions.
 
 ## Conventions
 
 - Input `(B, H, W)` float32 gradient tensors `g_x`, `g_y` (filter output and
   ground truth), on the same device.
 - Output is a length-`B` float32 tensor - one metric value per image. The
-  sweep runner aggregates over (seed x scene x condition).
+  calling benchmark harness can aggregate over seed, scene, and condition.
 - Masks (`signal`, `flat`) are computed from the true gradient field by
   `agfb_metrics.metrics.base.masks` and follow the Section 1.1 definition
   (inward-eroded background mask, dilate 8 px by default - matches the

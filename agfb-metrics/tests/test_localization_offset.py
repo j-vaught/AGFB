@@ -32,9 +32,9 @@ def test_zero_offset_when_filter_matches_truth() -> None:
 
 
 def test_known_offset_when_filter_is_shifted_step() -> None:
-    """If the filter output is a step shifted by 2 pixels, every cross-edge
+    """If the filter output is a step shifted by 2 pixels, every cross-signal
     profile peaks at t=+2 (filter peak is 2 px to the right of the true
-    edge), so the metric should report about 2 pixels."""
+    true-gradient crest), so the metric should report about 2 pixels."""
     H = W = 96
     gx_t = _gaussian_step_gx(H, W, sigma=2.0, x0=48.0)
     gx_f = _gaussian_step_gx(H, W, sigma=2.0, x0=50.0)

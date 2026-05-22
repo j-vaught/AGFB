@@ -1,6 +1,6 @@
 """Side-lobe ratio (dB).
 
-On the cross-edge `|grad_filter|` profile for each edge pixel, identify the
+On the cross-signal `|grad_filter|` profile for each signal pixel, identify the
 main lobe as the contiguous region around the peak that extends outward in
 each direction until the profile first reaches a local minimum. Outside
 the main lobe, compute the maximum value `|grad|_outside`, and form
@@ -10,7 +10,7 @@ the main lobe, compute the maximum value `|grad|_outside`, and form
 The metric is `20/|E| * sum_p log10(r_p)`, in dB (the spec form). Pixels
 with no detectable side-lobe - i.e., the main lobe spans the whole
 `[-r_max, r_max]` window - are skipped, since the spec is silent on what
-their `r_p` should be. Images with no usable edge pixels return NaN.
+their `r_p` should be. Images with no usable signal pixels return NaN.
 """
 
 from __future__ import annotations

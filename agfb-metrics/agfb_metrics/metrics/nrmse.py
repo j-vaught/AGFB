@@ -1,8 +1,8 @@
-"""NRMSE on edge pixels.
+"""NRMSE on signal pixels.
 
 `NRMSE = sqrt(<|e|^2>_E) / <|grad_true|>_E`
 
-where `e = grad_filter - grad_true`, `E` is the signal (true-edge) mask, and
+where `e = grad_filter - grad_true`, `E` is the signal (true-gradient signal) mask, and
 both expectations are means over `E`. Note this is the *spec* definition: the
 numerator is RMS, the denominator is the linear mean of true-gradient
 magnitude. (The existing PGF_paper prototype `mini.nrmse_vector` uses a

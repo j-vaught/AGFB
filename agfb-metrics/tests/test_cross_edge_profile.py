@@ -1,4 +1,4 @@
-"""Tests for the shared cross-edge profile sampler."""
+"""Tests for the shared cross-signal profile sampler."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def test_profile_shape_and_t_axis() -> None:
 def test_filter_and_truth_argmax_agree_when_equal() -> None:
     """If the sampled field equals the truth field, every per-pixel profile
     peaks at the *same* sample position as the truth's profile at that
-    pixel (the foot of the perpendicular from p to the edge crest)."""
+    pixel (the foot of the perpendicular from p to the true-gradient crest)."""
     gx, gy, signal = _synth_step_field(H=32, W=64, sigma=2.0, x0=30.0)
     mag = magnitude(gx, gy)
     filt_profiles, _, _ = cross_edge_profile(mag, gx, gy, signal)

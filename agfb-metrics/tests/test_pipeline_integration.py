@@ -162,10 +162,10 @@ def test_phase1_clean_smoothed_step(gens, filters) -> None:
 
     fwhm_cd = edge_fwhm(cdx, cdy, gx_t, gy_t, signal)[0].item()
     fwhm_dog = edge_fwhm(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
-    assert fwhm_dog > fwhm_cd, "DoG(sigma=4) should widen the cross-edge response"
+    assert fwhm_dog > fwhm_cd, "DoG(sigma=4) should widen the cross-signal response"
 
     leak_cd = tangential_normal_leak(cdx, cdy, gx_t, gy_t, signal)[0].item()
-    assert leak_cd < -10.0, f"oblique-edge T-to-N leak {leak_cd:.1f} dB looks too high"
+    assert leak_cd < -10.0, f"oblique-gradient T-to-N leak {leak_cd:.1f} dB looks too high"
 
 
 def test_phase1_noise_only_input(filters) -> None:

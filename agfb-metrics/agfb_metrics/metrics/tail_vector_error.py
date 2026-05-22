@@ -1,10 +1,10 @@
-"""95th-percentile gradient-vector error on edge pixels.
+"""95th-percentile gradient-vector error on signal pixels.
 
 For each `p in E`, the scalar magnitude `|e(p)|` of the per-pixel vector
 error from NRMSE; report the 95th-percentile of `{|e(p)| : p in E}` per image.
 
-Captures the rare-disaster pixels that NRMSE's mean hides. Downstream pipelines
-(edge linking, ridge tracing) tend to break on the single worst pixel.
+Captures the rare-disaster pixels that NRMSE's mean hides. Downstream gradient
+pipelines tend to break on the single worst pixel.
 """
 
 from __future__ import annotations

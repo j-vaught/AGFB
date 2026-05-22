@@ -1,4 +1,4 @@
-"""Angular MAE on edge pixels (degrees).
+"""Angular MAE on signal pixels (degrees).
 
 At each `p in E`,
     theta_p = arccos((grad_filter . grad_true) / (|grad_filter| |grad_true|))
@@ -8,8 +8,8 @@ is clamped to exactly `[-1, 1]` so float32 round-off (e.g. 1.0000001 for
 perfectly aligned vectors) doesn't drift outside the domain. The endpoints
 themselves are well-defined: arccos(1) = 0, arccos(-1) = pi.
 
-Edge pixels at which either gradient has zero magnitude are skipped (the
-angle is undefined there). If every edge pixel in an image is degenerate
+Signal pixels at which either gradient has zero magnitude are skipped (the
+angle is undefined there). If every signal pixel in an image is degenerate
 the metric returns NaN for that image.
 """
 

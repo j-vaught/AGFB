@@ -1,15 +1,15 @@
 """Edge FWHM (response sharpness, pixels).
 
-On the cross-edge `|grad_filter|` profile for each edge pixel, find the
+On the cross-signal `|grad_filter|` profile for each signal pixel, find the
 peak value and the two interpolated positions on either side of the peak
 where the profile first drops to half the peak height. The FWHM is the
-distance between those positions; the metric is the mean FWHM across edge
+distance between those positions; the metric is the mean FWHM across signal
 pixels. Sub-pixel crossings use linear interpolation between adjacent
 samples.
 
-Edge pixels whose profile never reaches half-peak on one or both sides
+Signal pixels whose profile never reaches half-peak on one or both sides
 within `[-r_max, r_max]` are skipped - the spec doesn't define FWHM in
-that case. Images with no usable edge pixels return NaN.
+that case. Images with no usable signal pixels return NaN.
 """
 
 from __future__ import annotations

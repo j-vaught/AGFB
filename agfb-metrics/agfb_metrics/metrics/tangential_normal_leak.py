@@ -11,7 +11,7 @@ direction; circular-support reference filters in the AGFB suite do not.
 More-negative is better. Tangent is the 90 deg CCW rotation of the normal:
 `(t_x, t_y) = (-n_y, n_x)`.
 
-When `E_n` is zero (filter output identically zero on every edge pixel) the
+When `E_n` is zero (filter output identically zero on every signal pixel) the
 metric is returned as `-inf` since `E_t` is also zero in that case - the
 filter has no energy at all and the leak ratio is degenerate. The `B,`
 output dtype is float32, so the actual value is `-3.4028e+38`; the sweep

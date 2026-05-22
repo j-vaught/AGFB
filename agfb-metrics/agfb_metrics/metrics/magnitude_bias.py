@@ -1,8 +1,8 @@
-"""Magnitude bias on edge pixels.
+"""Magnitude bias on signal pixels.
 
 `magnitude_bias = <|grad_filter|>_E / <|grad_true|>_E - 1`
 
-Signed: positive means the filter is over-reading the edge magnitude
+Signed: positive means the filter is over-reading the signal magnitude
 (sharpeners), negative means under-reading (smoothers spread the step's
 gradient across many pixels and reduce peak height).
 """

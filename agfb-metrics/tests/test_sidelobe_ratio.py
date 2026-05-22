@@ -49,7 +49,7 @@ def test_known_sidelobe_ratio() -> None:
     gy_t = torch.zeros_like(gx_t)
     gx_f = _ringy_field(H, W, sigma=2.0, x0=64.0, ring_amp=0.1)
     # Use the clean truth field for signal mask + normal direction; the side
-    # lobe in the "filter" output is then visible on the cross-edge profile.
+    # lobe in the "filter" output is then visible on the cross-signal profile.
     out = sidelobe_ratio(gx_f, gy_t, gx_t, gy_t, _signal_mask(gx_t))
     assert out[0].item() < -15.0
     assert out[0].item() > -25.0

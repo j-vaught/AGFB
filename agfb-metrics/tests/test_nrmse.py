@@ -1,4 +1,4 @@
-"""Tests for NRMSE on edge pixels."""
+"""Tests for NRMSE on signal pixels."""
 
 from __future__ import annotations
 
