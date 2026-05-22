@@ -1,5 +1,8 @@
 """Angular MAE on signal pixels (degrees).
 
+Designed for signal pixels where filter and truth gradients have meaningful
+nonzero directions. Degenerate zero-magnitude pixels are skipped.
+
 At each `p in E`,
     theta_p = arccos((grad_filter . grad_true) / (|grad_filter| |grad_true|))
 

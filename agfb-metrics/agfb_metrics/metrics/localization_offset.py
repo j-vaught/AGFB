@@ -1,5 +1,9 @@
 """Localization offset (pixels).
 
+Designed for smooth true-gradient signal bands with a single dominant crest
+along the truth normal. Textured or multi-crest profiles make the peak offset
+ambiguous.
+
 For each signal pixel `p` with unit normal `n_hat_p`, sample
 `|grad_filter|` along the perpendicular line `p + t * n_hat_p` for
 `t in [-r_max, r_max]`, locate the peak position to sub-pixel precision

@@ -1,5 +1,8 @@
 """Tangential-to-normal leak (dB).
 
+Designed for oriented-gradient signal regions with reliable true-gradient
+normals. The signal mask should exclude flat or near-zero truth gradients.
+
 At each `p in E` with true unit normal `n_hat_p` and tangent `t_hat_p`:
     g_n(p) = grad_filter(p) . n_hat_p
     g_t(p) = grad_filter(p) . t_hat_p

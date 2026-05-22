@@ -1,5 +1,8 @@
 """95th-percentile gradient-vector error on signal pixels.
 
+Designed for AGFB-style signal masks where rare large gradient errors matter.
+Inputs are matched filter and truth gradient tensors.
+
 For each `p in E`, the scalar magnitude `|e(p)|` of the per-pixel vector
 error from NRMSE; report the 95th-percentile of `{|e(p)| : p in E}` per image.
 

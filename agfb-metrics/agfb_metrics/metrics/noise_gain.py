@@ -1,5 +1,8 @@
 """Background noise gain.
 
+Designed for flat-region gradient outputs from images with known injected AWGN
+standard deviation `sigma_n`.
+
 `noise_gain = std(|grad_filter|)_F / sigma_n`
 
 where `F` is the flat-region mask and `sigma_n` is the known input AWGN

@@ -1,10 +1,13 @@
 """99th-percentile spurious gradient on flat regions.
 
+Designed for flat-region masks where true gradients are zero and high-percentile
+background gradient magnitude is the quantity of interest.
+
 `tail_spurious_grad = P_99({|grad_filter(p)| : p in F})`
 
-Independent of `sigma_n`. The value a downstream threshold must be set above
-to suppress spurious detections. Tracks noise gain for Gaussian-output filters
-and diverges when the noise output has heavy tails.
+Independent of `sigma_n`. The value a downstream gradient cutoff must be set
+above to suppress flat-region gradient artifacts. Tracks noise gain for
+Gaussian-output filters and diverges when the noise output has heavy tails.
 """
 
 from __future__ import annotations

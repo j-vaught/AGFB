@@ -1,5 +1,8 @@
 """Magnitude bias on signal pixels.
 
+Designed for signal masks where the average true-gradient magnitude is a
+meaningful reference scale.
+
 `magnitude_bias = <|grad_filter|>_E / <|grad_true|>_E - 1`
 
 Signed: positive means the filter is over-reading the signal magnitude

@@ -1,5 +1,8 @@
 """NRMSE on signal pixels.
 
+Designed for AGFB-style gradient benchmarks with known true gradients and a
+non-empty signal mask. Inputs are gradient tensors, not raw intensity images.
+
 `NRMSE = sqrt(<|e|^2>_E) / <|grad_true|>_E`
 
 where `e = grad_filter - grad_true`, `E` is the signal (true-gradient signal) mask, and

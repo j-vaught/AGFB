@@ -1,5 +1,8 @@
 """Edge FWHM (response sharpness, pixels).
 
+Designed for smooth, single-lobe cross-signal gradient profiles. Profiles that
+do not cross half-peak on both sides are skipped.
+
 On the cross-signal `|grad_filter|` profile for each signal pixel, find the
 peak value and the two interpolated positions on either side of the peak
 where the profile first drops to half the peak height. The FWHM is the

@@ -1,5 +1,8 @@
 """Side-lobe ratio (dB).
 
+Designed for sampled cross-signal profiles where a dominant main lobe can be
+separated from smaller secondary lobes.
+
 On the cross-signal `|grad_filter|` profile for each signal pixel, identify the
 main lobe as the contiguous region around the peak that extends outward in
 each direction until the profile first reaches a local minimum. Outside
