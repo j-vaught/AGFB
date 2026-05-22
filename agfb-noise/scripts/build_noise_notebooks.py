@@ -290,9 +290,9 @@ elapsed_ms"""
         ],
         "metadata": {
             "kernelspec": {
-                "display_name": "Python 3",
+                "display_name": "agfb-noise (.venv)",
                 "language": "python",
-                "name": "python3",
+                "name": "agfb-noise",
             },
             "language_info": {
                 "name": "python",

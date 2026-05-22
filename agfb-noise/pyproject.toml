@@ -24,6 +24,7 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
+    "ipykernel>=6.29",
     "pytest>=8.0",
     "ruff>=0.7",
     "ty>=0.0.1a8",

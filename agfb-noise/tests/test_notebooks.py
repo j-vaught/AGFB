@@ -27,6 +27,11 @@ def test_noise_notebooks_are_source_only_and_use_1024_image() -> None:
     for path in notebooks:
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["nbformat"] == 4
+        assert data["metadata"]["kernelspec"] == {
+            "display_name": "agfb-noise (.venv)",
+            "language": "python",
+            "name": "agfb-noise",
+        }
         source = "\n".join(
             "".join(cell.get("source", [])) for cell in data["cells"] if cell["cell_type"] == "code"
         )

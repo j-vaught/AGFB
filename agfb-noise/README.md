@@ -60,6 +60,12 @@ corrupted = apply_noise_sequence(image, specs, seed=10, clamp=(0.0, 1.0))
 
 Single-model notebooks are in `notebooks/noise`. Each notebook starts with the same synthetic 1024 x 1024 image, applies one noise model, reports compact tensor statistics, previews the clean image, noisy image, and residual, and times one hot-path call on the selected device.
 
+The notebooks target the uv-managed `agfb-noise (.venv)` kernel. Register it once after `uv sync`.
+
+```sh
+uv run python -m ipykernel install --user --name agfb-noise --display-name "agfb-noise (.venv)"
+```
+
 **Literature Basis**
 
 The shipped set starts with the practical image-noise modes used by common denoising tools. The `random_noise` API in scikit-image covers additive Gaussian noise, local-variance Gaussian noise, Poisson noise, salt, pepper, salt-and-pepper, and multiplicative speckle, which is a useful baseline vocabulary for image-processing experiments. The impulse models are also supported by image-denoising surveys that distinguish fixed-valued impulse noise from random-valued impulse noise.
