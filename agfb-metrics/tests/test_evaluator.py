@@ -8,6 +8,8 @@ import pytest
 import torch
 
 from agfb_metrics.metrics import (
+    PIXEL_METRICS,
+    MetricEvaluator,
     angular_mae,
     edge_fwhm,
     evaluate_metrics,
@@ -127,3 +129,38 @@ def test_evaluate_metrics_requires_mask_for_profile_metrics() -> None:
             signal_mask=None,
             flat_mask=flat,
         )
+
+
+def test_metric_evaluator_matches_evaluate_metrics() -> None:
+    gx, gy, gx_t, gy_t, signal, flat = _case()
+    selected = ("nrmse", "angular_mae", "noise_gain", "tail_spurious_grad")
+    evaluator = MetricEvaluator(metrics=selected, sigma_n=0.01)
+
+    out = evaluator(
+        gx,
+        gy,
+        gx_t,
+        gy_t,
+        signal_mask=signal,
+        flat_mask=flat,
+    )
+    expected = evaluate_metrics(
+        gx,
+        gy,
+        gx_t,
+        gy_t,
+        metrics=selected,
+        signal_mask=signal,
+        flat_mask=flat,
+        sigma_n=0.01,
+    )
+
+    assert tuple(out) == selected
+    for name, value in out.items():
+        assert torch.allclose(value, expected[name], equal_nan=True)
+
+
+def test_metric_evaluator_compile_requires_pixel_metrics() -> None:
+    assert "edge_fwhm" not in PIXEL_METRICS
+    with pytest.raises(ValueError, match="pixel metrics"):
+        MetricEvaluator(metrics=("edge_fwhm",), sigma_n=0.01, use_compile=True)

@@ -59,6 +59,8 @@ def masked_sum_per_image(values: torch.Tensor, mask: torch.Tensor | None) -> tor
 
 def masked_mean_per_image(values: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
     """Mean of masked values per image; empty masks yield NaN."""
+    if mask is None:
+        return values.reshape(values.shape[0], -1).mean(dim=1)
     count = masked_count_per_image(mask, values)
     total = masked_sum_per_image(values, mask)
     mean = total / count.clamp_min(1.0)

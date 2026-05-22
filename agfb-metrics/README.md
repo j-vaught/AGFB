@@ -21,6 +21,13 @@ suite.
 - `agfb_metrics/metrics/` contains metric definitions and shared metric
   helpers.
 
+## Batch Evaluation
+
+`evaluate_metrics(...)` runs selected metrics for one gradient batch while
+sharing intermediate tensors. `MetricEvaluator(metrics=PIXEL_METRICS,
+use_compile=True)` keeps metric settings fixed and compiles the shared evaluator
+for repeated same-shape CUDA batches.
+
 ## Conventions
 
 - Input `(B, H, W)` float32 gradient tensors `g_x`, `g_y` (filter output and

@@ -21,6 +21,18 @@ def test_matches_numpy_percentile() -> None:
     assert out[0].item() == pytest.approx(expected, rel=1e-4)
 
 
+def test_matches_torch_quantile_without_mask() -> None:
+    torch.manual_seed(1)
+    H = W = 32
+    gx = torch.rand(1, H, W)
+    gy = torch.rand(1, H, W)
+
+    out = tail_spurious_grad(gx, gy, flat_mask=None, q=0.99)
+    mag = torch.sqrt(gx * gx + gy * gy)
+    expected = torch.quantile(mag.reshape(1, -1), 0.99, dim=1)
+    assert torch.allclose(out, expected)
+
+
 def test_zero_when_filter_is_zero() -> None:
     gx = torch.zeros(1, 32, 32)
     gy = torch.zeros(1, 32, 32)

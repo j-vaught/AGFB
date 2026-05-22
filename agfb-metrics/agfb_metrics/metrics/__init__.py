@@ -10,6 +10,8 @@ from agfb_metrics.metrics.base import (
 from agfb_metrics.metrics.edge_fwhm import edge_fwhm
 from agfb_metrics.metrics.evaluator import (
     ALL_METRICS,
+    PIXEL_METRICS,
+    MetricEvaluator,
     MetricName,
     evaluate_all_metrics,
     evaluate_metrics,
@@ -35,7 +37,9 @@ __all__ = [
     "noise_gain",
     "tail_spurious_grad",
     "MetricName",
+    "MetricEvaluator",
     "ALL_METRICS",
+    "PIXEL_METRICS",
     "evaluate_metrics",
     "evaluate_all_metrics",
     "magnitude",

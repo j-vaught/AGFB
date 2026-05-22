@@ -1,6 +1,8 @@
 """Batched, GPU-accelerated benchmark metrics for the AGFB suite."""
 
 from agfb_metrics.metrics import (
+    PIXEL_METRICS,
+    MetricEvaluator,
     angular_mae,
     edge_fwhm,
     evaluate_all_metrics,
@@ -30,6 +32,8 @@ __all__ = [
     "sidelobe_ratio",
     "noise_gain",
     "tail_spurious_grad",
+    "MetricEvaluator",
+    "PIXEL_METRICS",
     "evaluate_metrics",
     "evaluate_all_metrics",
     "magnitude",

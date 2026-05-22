@@ -22,6 +22,20 @@ def test_matches_numpy_percentile_on_uniform_errors() -> None:
     assert out[0].item() == pytest.approx(expected, rel=1e-4)
 
 
+def test_matches_torch_quantile_without_mask() -> None:
+    torch.manual_seed(1)
+    H = W = 32
+    gx_t = torch.zeros(1, H, W)
+    gy_t = torch.zeros_like(gx_t)
+    gx = torch.rand(1, H, W)
+    gy = torch.rand(1, H, W)
+
+    out = tail_vector_error(gx, gy, gx_t, gy_t, signal_mask=None, q=0.95)
+    err_mag = torch.sqrt(gx * gx + gy * gy)
+    expected = torch.quantile(err_mag.reshape(1, -1), 0.95, dim=1)
+    assert torch.allclose(out, expected)
+
+
 def test_zero_error_returns_zero_p95() -> None:
     gx = torch.tensor([[[1.0, 2.0], [3.0, 4.0]]])
     gy = torch.tensor([[[0.5, 0.5], [-1.0, 2.0]]])
