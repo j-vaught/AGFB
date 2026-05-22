@@ -1,6 +1,6 @@
-"""Metric C.1 -- Background noise gain.
+"""Background noise gain.
 
-`C_1 = std(|grad_filter|)_F / sigma_n`
+`noise_gain = std(|grad_filter|)_F / sigma_n`
 
 where `F` is the flat-region mask and `sigma_n` is the known input AWGN
 standard deviation. Smoothers score below 1.0, raw derivatives above. This
@@ -18,7 +18,7 @@ import torch
 from agfb_metrics.base import check_grad_pair, magnitude
 
 
-def c1_noise_gain(
+def noise_gain(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     flat_mask: torch.Tensor,

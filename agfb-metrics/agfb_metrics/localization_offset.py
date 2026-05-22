@@ -1,4 +1,4 @@
-"""Metric B.1 -- Localization offset (pixels).
+"""Localization offset (pixels).
 
 For each true edge pixel `p` with unit normal `n̂_p`, sample
 `|grad_filter|` along the perpendicular line `p + t * n̂_p` for
@@ -13,12 +13,12 @@ mask `E` to use:
   even `|grad_truth|` does not peak at `t=0` for off-ridge band pixels,
   the metric subtracts the truth's argmax position so the answer is 0
   when filter == truth:
-      B_1 = <|t*_filter(p) - t*_truth(p)|>_signal_mask.
+      localization offset = <|t*_filter(p) - t*_truth(p)|>_signal_mask.
 
 * `mode="ridge"` -- thins the signal mask to a 1-pixel-wide ridge by
   non-max-suppressing `|grad_truth|` along its own normal (see
   `ridge_mask_from_truth`). The literal spec form
-      B_1 = <|t*_filter(p)|>_ridge_mask
+      localization offset = <|t*_filter(p)|>_ridge_mask
   then makes sense because `t*_truth(p) = 0` on the ridge by construction.
 
 Both modes rank filters identically on noiseless input; the truth-anchored
@@ -60,7 +60,7 @@ def _peak_positions(profiles: torch.Tensor, t: torch.Tensor, step: float) -> tor
     return t[argmax_c] + subpx * step
 
 
-def b1_localization_offset(
+def localization_offset(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,

@@ -1,10 +1,10 @@
-"""Metric C.2 -- 99th-percentile spurious gradient on flat regions.
+"""99th-percentile spurious gradient on flat regions.
 
-`C_2 = P_99({|grad_filter(p)| : p in F})`
+`tail_spurious_grad = P_99({|grad_filter(p)| : p in F})`
 
 Independent of `sigma_n`. The value a downstream threshold must be set above
-to suppress spurious detections. Tracks C.1 for Gaussian-output filters and
-diverges when the noise output has heavy tails.
+to suppress spurious detections. Tracks noise gain for Gaussian-output filters
+and diverges when the noise output has heavy tails.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import torch
 from agfb_metrics.base import check_grad_pair, magnitude
 
 
-def c2_tail_spurious_grad(
+def tail_spurious_grad(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     flat_mask: torch.Tensor,

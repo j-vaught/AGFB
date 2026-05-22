@@ -4,9 +4,9 @@ existing PGF_paper prototype.
 Checks:
   1. agfb_metrics.masks()['signal'] is bit-identical to the prototype's
      mini.masks()['signal'] on the same single-image truth field.
-  2. A1, A2, A3, B3 produce expected signs / orders of magnitude on a clean
-     smoothed_step processed by central_difference, sobel_3, DoG(sigma=4).
-  3. C1, C2 produce expected magnitudes on a pure-noise input.
+  2. Error and bias metrics produce expected signs / orders of magnitude on a
+     clean smoothed_step processed by central_difference, sobel_3, DoG(sigma=4).
+  3. Noise metrics produce expected magnitudes on a pure-noise input.
 """
 
 from __future__ import annotations
@@ -19,17 +19,17 @@ import pytest
 import torch
 
 from agfb_metrics import (
-    a1_nrmse,
-    a2_angular_mae,
-    a3_tail_vector_error,
-    b1_localization_offset,
-    b2_tangential_normal_leak,
-    b3_magnitude_bias,
-    b4_edge_fwhm,
-    c1_noise_gain,
-    c2_tail_spurious_grad,
+    angular_mae,
+    edge_fwhm,
+    localization_offset,
     magnitude,
+    magnitude_bias,
     masks,
+    noise_gain,
+    nrmse,
+    tail_spurious_grad,
+    tail_vector_error,
+    tangential_normal_leak,
 )
 
 _PROTOTYPES_DIR = Path("/Users/user/Documents/New project/PGF_paper/benchmark/prototypes")
@@ -138,34 +138,34 @@ def test_phase1_clean_smoothed_step(gens, filters) -> None:
     signal = m["signal"]
 
     cdx, cdy = filters["central_difference"](I_b)
-    nrmse_cd = a1_nrmse(cdx, cdy, gx_t, gy_t, signal)[0].item()
-    amae_cd = a2_angular_mae(cdx, cdy, gx_t, gy_t, signal)[0].item()
-    p95_cd = a3_tail_vector_error(cdx, cdy, gx_t, gy_t, signal)[0].item()
-    bias_cd = b3_magnitude_bias(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    nrmse_cd = nrmse(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    amae_cd = angular_mae(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    p95_cd = tail_vector_error(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    bias_cd = magnitude_bias(cdx, cdy, gx_t, gy_t, signal)[0].item()
     assert 0.0 < nrmse_cd < 0.5
     assert 0.0 < amae_cd < 30.0
     assert p95_cd > 0.0
     assert -0.5 < bias_cd < 0.5
 
     dog_gx, dog_gy = filters["DoG"](sigma=4.0).apply(I_b)
-    bias_dog = b3_magnitude_bias(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
+    bias_dog = magnitude_bias(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
     assert bias_dog < bias_cd, (
         "DoG(σ=4) on a σ=2 step should under-read more than central_difference"
     )
 
-    # Axis-B profile-shape metrics on a clean step: central_difference is
-    # ~well-localized and narrow; DoG(σ=4) is widely smoothed.
-    b1_cd = b1_localization_offset(cdx, cdy, gx_t, gy_t, signal)[0].item()
-    b1_dog = b1_localization_offset(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
-    assert 0.0 <= b1_cd < 1.0
-    assert 0.0 <= b1_dog < 2.0
+    # Profile-shape metrics on a clean step: central_difference is
+    # well-localized and narrow; DoG(σ=4) is widely smoothed.
+    localization_cd = localization_offset(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    localization_dog = localization_offset(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
+    assert 0.0 <= localization_cd < 1.0
+    assert 0.0 <= localization_dog < 2.0
 
-    b4_cd = b4_edge_fwhm(cdx, cdy, gx_t, gy_t, signal)[0].item()
-    b4_dog = b4_edge_fwhm(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
-    assert b4_dog > b4_cd, "DoG(σ=4) should widen the cross-edge response"
+    fwhm_cd = edge_fwhm(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    fwhm_dog = edge_fwhm(dog_gx, dog_gy, gx_t, gy_t, signal)[0].item()
+    assert fwhm_dog > fwhm_cd, "DoG(σ=4) should widen the cross-edge response"
 
-    b2_cd = b2_tangential_normal_leak(cdx, cdy, gx_t, gy_t, signal)[0].item()
-    assert b2_cd < -10.0, f"oblique-edge T-to-N leak {b2_cd:.1f} dB looks too high"
+    leak_cd = tangential_normal_leak(cdx, cdy, gx_t, gy_t, signal)[0].item()
+    assert leak_cd < -10.0, f"oblique-edge T-to-N leak {leak_cd:.1f} dB looks too high"
 
 
 def test_phase1_noise_only_input(filters) -> None:
@@ -176,14 +176,14 @@ def test_phase1_noise_only_input(filters) -> None:
     mask = torch.ones(1, H, W, dtype=torch.bool)
 
     cdx, cdy = filters["central_difference"](noise)
-    cd_gain = c1_noise_gain(cdx, cdy, mask, sigma_n=sigma_n)[0].item()
-    cd_p99 = c2_tail_spurious_grad(cdx, cdy, mask)[0].item()
+    cd_gain = noise_gain(cdx, cdy, mask, sigma_n=sigma_n)[0].item()
+    cd_p99 = tail_spurious_grad(cdx, cdy, mask)[0].item()
     assert 0.0 < cd_gain < 5.0
     assert cd_p99 > 0.0
 
     dog = filters["DoG"](sigma=2.0)
     dx, dy = dog.apply(noise)
-    dog_gain = c1_noise_gain(dx, dy, mask, sigma_n=sigma_n)[0].item()
+    dog_gain = noise_gain(dx, dy, mask, sigma_n=sigma_n)[0].item()
     assert dog_gain < cd_gain, "DoG should suppress noise more than raw central_difference"
 
     mag_cd = magnitude(cdx, cdy)

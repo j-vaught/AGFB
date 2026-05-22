@@ -1,4 +1,4 @@
-"""Metric B.5 -- Side-lobe ratio (dB).
+"""Side-lobe ratio (dB).
 
 On the cross-edge `|grad_filter|` profile for each edge pixel, identify the
 main lobe as the contiguous region around the peak that extends outward in
@@ -56,7 +56,7 @@ def _sidelobe_ratio_one_profile(prof: torch.Tensor) -> float | None:
     return outside_max / peak
 
 
-def b5_sidelobe_ratio(
+def sidelobe_ratio(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,

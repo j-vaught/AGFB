@@ -1,4 +1,4 @@
-"""Shared cross-edge profile sampler for B.1, B.4, B.5.
+"""Shared cross-edge profile sampler for edge-profile metrics.
 
 For each true edge pixel `p` with unit normal `n̂_p`, bilinearly sample a
 scalar field along `p + t * n̂_p` for `t in [-r_max, r_max]` with sample
@@ -7,10 +7,10 @@ step `step`. Returns one `(N_edge, K)` profile tensor per image.
 Important: the signal mask is the §1.1 band mask (all pixels where
 `|grad_true|` exceeds threshold), not a thin ridge. For an off-ridge edge
 pixel `p`, the profile of `|grad_truth|` peaks at the *signed distance
-from p to the true edge crest along the normal*, not at `t = 0`. B.1
-therefore measures `argmax(filter_profile) - argmax(truth_profile)`; B.4
-and B.5 measure intrinsic shape properties of the filter profile that do
-not depend on edge-pixel anchoring.
+from p to the true edge crest along the normal*, not at `t = 0`. Localization
+offset therefore measures `argmax(filter_profile) - argmax(truth_profile)`;
+edge FWHM and side-lobe ratio measure intrinsic shape properties of the filter
+profile that do not depend on edge-pixel anchoring.
 
 Edge pixels near the image boundary fall back to `padding_mode='border'`
 rather than being dropped — §1.1 generators centre edges in the field of

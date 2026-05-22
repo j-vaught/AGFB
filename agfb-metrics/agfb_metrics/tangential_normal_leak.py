@@ -1,10 +1,10 @@
-"""Metric B.2 -- Tangential-to-normal leak (dB).
+"""Tangential-to-normal leak (dB).
 
 At each `p in E` with true unit normal `n̂_p` and tangent `t̂_p`:
     g_n(p) = grad_filter(p) . n̂_p
     g_t(p) = grad_filter(p) . t̂_p
     E_n = <g_n^2>_E,  E_t = <g_t^2>_E
-    B_2 = 10 log10(E_t / E_n)
+    leak ratio = 10 log10(E_t / E_n)
 
 Square-support filters at oblique edges leak energy into the tangential
 direction; circular-support reference filters in the AGFB suite do not.
@@ -27,7 +27,7 @@ import torch
 from agfb_metrics.base import check_grad_pair, unit_normal_from_truth
 
 
-def b2_tangential_normal_leak(
+def tangential_normal_leak(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,

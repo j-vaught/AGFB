@@ -1,4 +1,4 @@
-"""Metric A.2 -- Angular MAE on edge pixels (degrees).
+"""Angular MAE on edge pixels (degrees).
 
 At each `p in E`,
     theta_p = arccos((grad_filter . grad_true) / (|grad_filter| |grad_true|))
@@ -22,7 +22,7 @@ import torch
 from agfb_metrics.base import check_grad_pair, magnitude
 
 
-def a2_angular_mae(
+def angular_mae(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,

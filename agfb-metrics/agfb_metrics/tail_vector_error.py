@@ -1,33 +1,36 @@
-"""Metric B.3 -- Magnitude bias on edge pixels.
+"""95th-percentile gradient-vector error on edge pixels.
 
-`B_3 = <|grad_filter|>_E / <|grad_true|>_E - 1`
+For each `p in E`, the scalar magnitude `|e(p)|` of the per-pixel vector
+error from NRMSE; report the 95th-percentile of `{|e(p)| : p in E}` per image.
 
-Signed: positive means the filter is over-reading the edge magnitude
-(sharpeners), negative means under-reading (smoothers spread the step's
-gradient across many pixels and reduce peak height).
+Captures the rare-disaster pixels that NRMSE's mean hides. Downstream pipelines
+(edge linking, ridge tracing) tend to break on the single worst pixel.
 """
 
 from __future__ import annotations
 
 import torch
 
-from agfb_metrics.base import check_grad_pair, magnitude
+from agfb_metrics.base import check_grad_pair
 
 
-def b3_magnitude_bias(
+def tail_vector_error(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,
     g_y_t: torch.Tensor,
     signal_mask: torch.Tensor,
+    *,
+    q: float = 0.95,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
     check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
     if signal_mask.shape != g_x.shape:
         raise ValueError(f"signal_mask {signal_mask.shape} must match (B, H, W) {g_x.shape}")
+    if not 0.0 < q < 1.0:
+        raise ValueError(f"q must be in (0, 1); got {q}")
 
-    mag_f = magnitude(g_x, g_y)
-    mag_t = magnitude(g_x_t, g_y_t)
+    err_mag = torch.sqrt((g_x - g_x_t) ** 2 + (g_y - g_y_t) ** 2)
 
     B = g_x.shape[0]
     out = torch.empty(B, dtype=torch.float32, device=g_x.device)
@@ -36,7 +39,5 @@ def b3_magnitude_bias(
         if not bool(m.any()):
             out[i] = float("nan")
             continue
-        num = mag_f[i][m].mean()
-        den = mag_t[i][m].mean().clamp_min(1e-30)
-        out[i] = float(num / den - 1.0)
+        out[i] = float(torch.quantile(err_mag[i][m], q))
     return out

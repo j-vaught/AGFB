@@ -1,4 +1,4 @@
-"""Metric B.4 -- Edge FWHM (response sharpness, pixels).
+"""Edge FWHM (response sharpness, pixels).
 
 On the cross-edge `|grad_filter|` profile for each edge pixel, find the
 peak value and the two interpolated positions on either side of the peak
@@ -53,7 +53,7 @@ def _fwhm_one_profile(prof: torch.Tensor, t: torch.Tensor) -> float | None:
     return right - left
 
 
-def b4_edge_fwhm(
+def edge_fwhm(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,

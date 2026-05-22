@@ -1,4 +1,4 @@
-"""Tests for B.4 edge FWHM."""
+"""Tests for edge FWHM."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import math
 import pytest
 import torch
 
-from agfb_metrics.b4_edge_fwhm import b4_edge_fwhm
+from agfb_metrics.edge_fwhm import edge_fwhm
 
 
 def _gaussian_step_gx(H: int, W: int, sigma: float, x0: float) -> torch.Tensor:
@@ -27,7 +27,7 @@ def test_fwhm_matches_gaussian_theory() -> None:
     sigma = 2.0
     gx_t = _gaussian_step_gx(H, W, sigma=sigma, x0=48.0)
     gy_t = torch.zeros_like(gx_t)
-    out = b4_edge_fwhm(gx_t, gy_t, gx_t, gy_t, _signal_mask(gx_t))
+    out = edge_fwhm(gx_t, gy_t, gx_t, gy_t, _signal_mask(gx_t))
     expected = sigma * 2.0 * math.sqrt(2.0 * math.log(2.0))
     assert out[0].item() == pytest.approx(expected, abs=0.05)
 
@@ -37,6 +37,6 @@ def test_wider_sigma_gives_wider_fwhm() -> None:
     narrow = _gaussian_step_gx(H, W, sigma=1.5, x0=48.0)
     wide = _gaussian_step_gx(H, W, sigma=3.0, x0=48.0)
     z = torch.zeros_like(narrow)
-    out_narrow = b4_edge_fwhm(narrow, z, narrow, z, _signal_mask(narrow))
-    out_wide = b4_edge_fwhm(wide, z, wide, z, _signal_mask(wide))
+    out_narrow = edge_fwhm(narrow, z, narrow, z, _signal_mask(narrow))
+    out_wide = edge_fwhm(wide, z, wide, z, _signal_mask(wide))
     assert out_wide[0].item() > out_narrow[0].item() + 1.0

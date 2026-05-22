@@ -2,20 +2,20 @@
 
 Batched, GPU-accelerated benchmark metrics for the Analytical Gradient Filter
 Benchmark (AGFB) suite.
-Implements the ten metrics defined in `Benchmark Specs/01_3_noise_sweep.typ`:
+Implements ten benchmark metrics:
 
-| Axis | Metric | Meaning |
-|------|--------|---------|
-| A    | A.1 NRMSE          | Headline error, normalised vector RMS on edge pixels |
-| A    | A.2 Angular MAE    | Mean angular error, degrees, on edge pixels |
-| A    | A.3 Tail vector error | 95th-percentile per-pixel vector error on edge pixels |
-| B    | B.1 Localization offset | Mean shift of `|grad|` peak from true edge, in pixels |
-| B    | B.2 T-to-N leak    | `10 log10(E_t / E_n)`, tangential vs normal energy |
-| B    | B.3 Magnitude bias | `<|grad_filter|> / <|grad_true|> - 1` (signed) |
-| B    | B.4 Edge FWHM      | Full-width-half-max of `|grad|` perpendicular to edge |
-| B    | B.5 Side-lobe ratio | Max-outside-main-lobe / peak, in dB |
-| C    | C.1 Noise gain     | `std(|grad_filter|)_F / sigma_n` on flat regions |
-| C    | C.2 Tail spurious  | 99th-percentile `|grad_filter|` on flat regions |
+| Metric | Meaning |
+|--------|---------|
+| NRMSE | Headline error, normalised vector RMS on edge pixels |
+| Angular MAE | Mean angular error, degrees, on edge pixels |
+| Tail vector error | 95th-percentile per-pixel vector error on edge pixels |
+| Localization offset | Mean shift of `|grad|` peak from true edge, in pixels |
+| Tangential-normal leak | `10 log10(E_t / E_n)`, tangential vs normal energy |
+| Magnitude bias | `<|grad_filter|> / <|grad_true|> - 1` (signed) |
+| Edge FWHM | Full-width-half-max of `|grad|` perpendicular to edge |
+| Side-lobe ratio | Max-outside-main-lobe / peak, in dB |
+| Noise gain | `std(|grad_filter|)_F / sigma_n` on flat regions |
+| Tail spurious gradient | 99th-percentile `|grad_filter|` on flat regions |
 
 For all metrics, smaller-is-better.
 

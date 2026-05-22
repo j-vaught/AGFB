@@ -1,6 +1,6 @@
-"""Metric A.1 -- NRMSE on edge pixels.
+"""NRMSE on edge pixels.
 
-`A_1 = sqrt(<|e|^2>_E) / <|grad_true|>_E`
+`NRMSE = sqrt(<|e|^2>_E) / <|grad_true|>_E`
 
 where `e = grad_filter - grad_true`, `E` is the signal (true-edge) mask, and
 both expectations are means over `E`. Note this is the *spec* definition: the
@@ -20,7 +20,7 @@ import torch
 from agfb_metrics.base import check_grad_pair, magnitude
 
 
-def a1_nrmse(
+def nrmse(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,

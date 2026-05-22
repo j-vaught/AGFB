@@ -1,4 +1,4 @@
-"""Tests for A.1 NRMSE on edge pixels."""
+"""Tests for NRMSE on edge pixels."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import math
 import pytest
 import torch
 
-from agfb_metrics.a1_nrmse import a1_nrmse
+from agfb_metrics.nrmse import nrmse
 
 
 def test_zero_error_when_filter_matches_truth() -> None:
@@ -15,7 +15,7 @@ def test_zero_error_when_filter_matches_truth() -> None:
     gx_t = torch.randn(2, 16, 16)
     gy_t = torch.randn(2, 16, 16)
     mask = torch.ones(2, 16, 16, dtype=torch.bool)
-    out = a1_nrmse(gx_t, gy_t, gx_t, gy_t, mask)
+    out = nrmse(gx_t, gy_t, gx_t, gy_t, mask)
     assert out.shape == (2,)
     assert torch.allclose(out, torch.zeros_like(out), atol=1e-6)
 
@@ -31,7 +31,7 @@ def test_by_hand_value() -> None:
     expected_den = (2 + 2 + 3 + 5) / 4
     expected = expected_num / expected_den
 
-    out = a1_nrmse(gx, gy, gx_t, gy_t, mask)
+    out = nrmse(gx, gy, gx_t, gy_t, mask)
     assert out[0].item() == pytest.approx(expected, rel=1e-6)
 
 
@@ -39,5 +39,5 @@ def test_empty_mask_returns_nan() -> None:
     gx = torch.ones(1, 4, 4)
     gy = torch.ones(1, 4, 4)
     mask = torch.zeros(1, 4, 4, dtype=torch.bool)
-    out = a1_nrmse(gx, gy, gx, gy, mask)
+    out = nrmse(gx, gy, gx, gy, mask)
     assert torch.isnan(out[0])
