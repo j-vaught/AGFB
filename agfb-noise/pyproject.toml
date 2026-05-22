@@ -13,6 +13,11 @@ dependencies = [
     "numpy>=2.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/j-vaught/agfb-noise"
+Repository = "https://github.com/j-vaught/agfb-noise"
+Issues = "https://github.com/j-vaught/agfb-noise/issues"
+
 [build-system]
 requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
