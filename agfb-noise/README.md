@@ -63,8 +63,10 @@ Single-model notebooks are in `notebooks/noise`. Each notebook starts with the s
 The notebooks target the uv-managed `agfb-noise (.venv)` kernel. Register it once after `uv sync`.
 
 ```sh
-uv run python -m ipykernel install --user --name agfb-noise --display-name "agfb-noise (.venv)"
+uv run python -m ipykernel install --sys-prefix --name agfb-noise --display-name "agfb-noise (.venv)"
 ```
+
+In Visual Studio Code, open this repository folder directly so `.vscode/settings.json` can point the Python and Jupyter extensions at `.venv/bin/python`. If the kernel list is already open, reload the window after running the command above.
 
 **Literature Basis**
 
