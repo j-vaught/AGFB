@@ -8,6 +8,7 @@ requires-python = ">=3.11"
 dependencies = [
     "torch>=2.4,<2.7",
     "numpy>=2.0",
+    "triton>=3.2; platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 
 [dependency-groups]
@@ -34,7 +35,7 @@ torch = [
 pythonpath = ["."]
 
 [tool.ty.src]
-exclude = ["tests/test_pipeline_integration.py"]
+exclude = ["tests/test_pipeline_integration.py", "agfb_metrics/metrics/triton_pixel.py"]
 
 [tool.ruff]
 line-length = 100

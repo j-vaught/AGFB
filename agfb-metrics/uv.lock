@@ -16,6 +16,7 @@ dependencies = [
     { name = "numpy" },
     { name = "torch", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "sys_platform == 'linux'" },
+    { name = "triton", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 
 [package.dev-dependencies]
@@ -30,6 +31,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.4,<2.7" },
     { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.4,<2.7", index = "https://download.pytorch.org/whl/cu124" },
+    { name = "triton", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=3.2" },
 ]
 
 [package.metadata.requires-dev]

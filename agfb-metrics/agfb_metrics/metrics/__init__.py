@@ -24,6 +24,7 @@ from agfb_metrics.metrics.sidelobe_ratio import sidelobe_ratio
 from agfb_metrics.metrics.tail_spurious_grad import tail_spurious_grad
 from agfb_metrics.metrics.tail_vector_error import tail_vector_error
 from agfb_metrics.metrics.tangential_normal_leak import tangential_normal_leak
+from agfb_metrics.metrics.triton_pixel import TritonPixelEvaluator, is_triton_pixel_available
 
 __all__ = [
     "nrmse",
@@ -36,6 +37,8 @@ __all__ = [
     "sidelobe_ratio",
     "noise_gain",
     "tail_spurious_grad",
+    "TritonPixelEvaluator",
+    "is_triton_pixel_available",
     "MetricName",
     "MetricEvaluator",
     "ALL_METRICS",

@@ -27,6 +27,9 @@ suite.
 sharing intermediate tensors. `MetricEvaluator(metrics=PIXEL_METRICS,
 use_compile=True)` keeps metric settings fixed and compiles the shared evaluator
 for repeated same-shape CUDA batches.
+`TritonPixelEvaluator(metrics=PIXEL_METRICS)` evaluates full-image pixel metrics
+with a fused Triton reduction kernel on CUDA tensors.
+Use `tail_mode="histogram"` for fast approximate tail percentiles.
 
 ## Conventions
 
