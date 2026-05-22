@@ -35,6 +35,15 @@ if triton is not None and tl is not None and libdevice is not None:
         pixels_per_image: tl.constexpr,
         partial_blocks: tl.constexpr,
         block_size: tl.constexpr,
+        need_count: tl.constexpr,
+        need_err_sum: tl.constexpr,
+        need_mag_t_sum: tl.constexpr,
+        need_angle: tl.constexpr,
+        need_tangent: tl.constexpr,
+        need_mag_f_sum: tl.constexpr,
+        need_mag_f_sq_sum: tl.constexpr,
+        need_max_err: tl.constexpr,
+        need_max_mag: tl.constexpr,
     ):
         image_id = tl.program_id(0)
         block_id = tl.program_id(1)
@@ -44,45 +53,66 @@ if triton is not None and tl is not None and libdevice is not None:
 
         gx = tl.load(g_x + base, mask=mask, other=0.0)
         gy = tl.load(g_y + base, mask=mask, other=0.0)
-        gxt = tl.load(g_x_t + base, mask=mask, other=0.0)
-        gyt = tl.load(g_y_t + base, mask=mask, other=0.0)
 
-        err_x = gx - gxt
-        err_y = gy - gyt
-        err_sq = err_x * err_x + err_y * err_y
-        err_mag = tl.sqrt(err_sq)
-
-        mag_f_sq = gx * gx + gy * gy
-        mag_t_sq = gxt * gxt + gyt * gyt
-        mag_f = tl.sqrt(mag_f_sq)
-        mag_t = tl.sqrt(mag_t_sq)
-        dot = gx * gxt + gy * gyt
-
-        valid_angle = mask & (mag_f > 1.0e-12) & (mag_t > 1.0e-12)
-        denom = tl.maximum(mag_f * mag_t, 1.0e-12)
-        cos_theta = dot / denom
-        cos_theta = tl.minimum(tl.maximum(cos_theta, -1.0), 1.0)
-        theta_deg = libdevice.acos(cos_theta) * 57.29577951308232
-        theta_deg = tl.where(valid_angle, theta_deg, 0.0)
-
-        inv_mag_t = tl.where(mag_t > 1.0e-12, 1.0 / tl.maximum(mag_t, 1.0e-12), 0.0)
-        g_n_sq = (dot * inv_mag_t) * (dot * inv_mag_t)
-        cross = gy * gxt - gx * gyt
-        g_t_sq = (cross * inv_mag_t) * (cross * inv_mag_t)
-
-        active = tl.where(mask, 1.0, 0.0)
         out_base = (image_id * partial_blocks + block_id) * 11
-        tl.store(partials + out_base + 0, tl.sum(active, axis=0))
-        tl.store(partials + out_base + 1, tl.sum(tl.where(mask, err_sq, 0.0), axis=0))
-        tl.store(partials + out_base + 2, tl.sum(tl.where(mask, mag_t, 0.0), axis=0))
-        tl.store(partials + out_base + 3, tl.sum(theta_deg, axis=0))
-        tl.store(partials + out_base + 4, tl.sum(tl.where(valid_angle, 1.0, 0.0), axis=0))
-        tl.store(partials + out_base + 5, tl.sum(tl.where(mask, g_n_sq, 0.0), axis=0))
-        tl.store(partials + out_base + 6, tl.sum(tl.where(mask, g_t_sq, 0.0), axis=0))
-        tl.store(partials + out_base + 7, tl.sum(tl.where(mask, mag_f, 0.0), axis=0))
-        tl.store(partials + out_base + 8, tl.sum(tl.where(mask, mag_f_sq, 0.0), axis=0))
-        tl.store(partials + out_base + 9, tl.max(tl.where(mask, err_mag, 0.0), axis=0))
-        tl.store(partials + out_base + 10, tl.max(tl.where(mask, mag_f, 0.0), axis=0))
+
+        if need_count:
+            active = tl.where(mask, 1.0, 0.0)
+            tl.store(partials + out_base + 0, tl.sum(active, axis=0))
+
+        if need_err_sum or need_mag_t_sum or need_angle or need_tangent or need_max_err:
+            gxt = tl.load(g_x_t + base, mask=mask, other=0.0)
+            gyt = tl.load(g_y_t + base, mask=mask, other=0.0)
+
+        if need_err_sum or need_max_err:
+            err_x = gx - gxt
+            err_y = gy - gyt
+            err_sq = err_x * err_x + err_y * err_y
+            if need_err_sum:
+                tl.store(partials + out_base + 1, tl.sum(tl.where(mask, err_sq, 0.0), axis=0))
+            if need_max_err:
+                tl.store(
+                    partials + out_base + 9, tl.max(tl.where(mask, tl.sqrt(err_sq), 0.0), axis=0)
+                )
+
+        if need_mag_t_sum or need_angle or need_tangent:
+            mag_t_sq = gxt * gxt + gyt * gyt
+            mag_t = tl.sqrt(mag_t_sq)
+            if need_mag_t_sum:
+                tl.store(partials + out_base + 2, tl.sum(tl.where(mask, mag_t, 0.0), axis=0))
+
+        if need_angle or need_mag_f_sum or need_mag_f_sq_sum or need_max_mag:
+            mag_f_sq = gx * gx + gy * gy
+            if need_mag_f_sq_sum:
+                tl.store(partials + out_base + 8, tl.sum(tl.where(mask, mag_f_sq, 0.0), axis=0))
+
+        if need_angle or need_mag_f_sum or need_max_mag:
+            mag_f = tl.sqrt(mag_f_sq)
+            if need_mag_f_sum:
+                tl.store(partials + out_base + 7, tl.sum(tl.where(mask, mag_f, 0.0), axis=0))
+            if need_max_mag:
+                tl.store(partials + out_base + 10, tl.max(tl.where(mask, mag_f, 0.0), axis=0))
+
+        if need_angle or need_tangent:
+            dot = gx * gxt + gy * gyt
+
+        if need_angle:
+            valid_angle = mask & (mag_f > 1.0e-12) & (mag_t > 1.0e-12)
+            denom = tl.maximum(mag_f * mag_t, 1.0e-12)
+            cos_theta = dot / denom
+            cos_theta = tl.minimum(tl.maximum(cos_theta, -1.0), 1.0)
+            theta_deg = libdevice.acos(cos_theta) * 57.29577951308232
+            theta_deg = tl.where(valid_angle, theta_deg, 0.0)
+            tl.store(partials + out_base + 3, tl.sum(theta_deg, axis=0))
+            tl.store(partials + out_base + 4, tl.sum(tl.where(valid_angle, 1.0, 0.0), axis=0))
+
+        if need_tangent:
+            inv_mag_t = tl.where(mag_t > 1.0e-12, 1.0 / tl.maximum(mag_t, 1.0e-12), 0.0)
+            g_n_sq = (dot * inv_mag_t) * (dot * inv_mag_t)
+            cross = gy * gxt - gx * gyt
+            g_t_sq = (cross * inv_mag_t) * (cross * inv_mag_t)
+            tl.store(partials + out_base + 5, tl.sum(tl.where(mask, g_n_sq, 0.0), axis=0))
+            tl.store(partials + out_base + 6, tl.sum(tl.where(mask, g_t_sq, 0.0), axis=0))
 
     @triton.jit
     def _tail_histogram_kernel(
@@ -194,46 +224,82 @@ class TritonPixelEvaluator:
 
         B, H, W = g_x.shape
         pixels_per_image = H * W
-        partial_blocks = triton.cdiv(pixels_per_image, self.block_size)
-        partials = torch.empty(
-            (B, partial_blocks, _STATS),
-            dtype=torch.float32,
-            device=g_x.device,
-        )
-
-        _pixel_partials_kernel[(B, partial_blocks)](
-            g_x,
-            g_y,
-            g_x_t,
-            g_y_t,
-            partials,
-            pixels_per_image,
-            partial_blocks,
-            self.block_size,
-            num_warps=8,
-        )
-
-        sums = partials[:, :, :9].sum(dim=1)
-        count = sums[:, 0].clamp_min(1.0)
-        sum_err_sq = sums[:, 1]
-        sum_mag_t = sums[:, 2]
-        sum_theta = sums[:, 3]
-        count_theta = sums[:, 4]
-        sum_gn_sq = sums[:, 5]
-        sum_gt_sq = sums[:, 6]
-        sum_mag_f = sums[:, 7]
-        sum_mag_f_sq = sums[:, 8]
-        max_err = partials[:, :, 9].amax(dim=1)
-        max_mag = partials[:, :, 10].amax(dim=1)
-
         values: dict[str, torch.Tensor] = {}
         selected_set = set(self.metrics)
+        needs_tail_vector_hist = (
+            self.tail_mode == "histogram" and "tail_vector_error" in selected_set
+        )
+        needs_tail_spurious_hist = (
+            self.tail_mode == "histogram" and "tail_spurious_grad" in selected_set
+        )
+        needs_reduce = bool(
+            selected_set
+            & {
+                "nrmse",
+                "angular_mae",
+                "tangential_normal_leak",
+                "magnitude_bias",
+                "noise_gain",
+            }
+        )
         needs_tail_hist = self.tail_mode == "histogram" and bool(
             selected_set & {"tail_vector_error", "tail_spurious_grad"}
         )
+        needs_partials = needs_reduce or needs_tail_hist
+        partial_blocks = triton.cdiv(pixels_per_image, self.block_size)
+        partials = None
+        sums = None
+        if needs_partials:
+            need_count = bool(selected_set & {"nrmse", "tangential_normal_leak", "noise_gain"})
+            need_err_sum = "nrmse" in selected_set
+            need_mag_t_sum = bool(selected_set & {"nrmse", "magnitude_bias"})
+            need_angle = "angular_mae" in selected_set
+            need_tangent = "tangential_normal_leak" in selected_set
+            need_mag_f_sum = bool(selected_set & {"magnitude_bias", "noise_gain"})
+            need_mag_f_sq_sum = "noise_gain" in selected_set
+            partials = torch.empty(
+                (B, partial_blocks, _STATS),
+                dtype=torch.float32,
+                device=g_x.device,
+            )
+
+            _pixel_partials_kernel[(B, partial_blocks)](
+                g_x,
+                g_y,
+                g_x_t,
+                g_y_t,
+                partials,
+                pixels_per_image,
+                partial_blocks,
+                self.block_size,
+                need_count,
+                need_err_sum,
+                need_mag_t_sum,
+                need_angle,
+                need_tangent,
+                need_mag_f_sum,
+                need_mag_f_sq_sum,
+                needs_tail_vector_hist,
+                needs_tail_spurious_hist,
+                num_warps=8,
+            )
+
+            sums = partials[:, :, :9].sum(dim=1)
+
         err_hist = None
         mag_hist = None
         if needs_tail_hist:
+            assert partials is not None
+            max_err = (
+                partials[:, :, 9].amax(dim=1)
+                if needs_tail_vector_hist
+                else torch.empty((B,), dtype=torch.float32, device=g_x.device)
+            )
+            max_mag = (
+                partials[:, :, 10].amax(dim=1)
+                if needs_tail_spurious_hist
+                else torch.empty((B,), dtype=torch.float32, device=g_x.device)
+            )
             err_hist = torch.zeros((B, self.tail_bins), dtype=torch.int32, device=g_x.device)
             mag_hist = torch.zeros((B, self.tail_bins), dtype=torch.int32, device=g_x.device)
             _tail_histogram_kernel[(B, partial_blocks)](
@@ -248,15 +314,22 @@ class TritonPixelEvaluator:
                 pixels_per_image,
                 self.tail_bins,
                 self.block_size,
-                "tail_vector_error" in selected_set,
-                "tail_spurious_grad" in selected_set,
+                needs_tail_vector_hist,
+                needs_tail_spurious_hist,
                 num_warps=8,
             )
 
         if "nrmse" in selected_set:
+            assert sums is not None
+            count = sums[:, 0].clamp_min(1.0)
+            sum_err_sq = sums[:, 1]
+            sum_mag_t = sums[:, 2]
             values["nrmse"] = torch.sqrt(sum_err_sq / count) / (sum_mag_t / count).clamp_min(1e-30)
 
         if "angular_mae" in selected_set:
+            assert sums is not None
+            sum_theta = sums[:, 3]
+            count_theta = sums[:, 4]
             angular = sum_theta / count_theta.clamp_min(1.0)
             values["angular_mae"] = torch.where(
                 count_theta > 0, angular, torch.full_like(angular, float("nan"))
@@ -269,11 +342,17 @@ class TritonPixelEvaluator:
                     err_mag.reshape(B, -1), self.tail_vector_q, dim=1
                 )
             else:
+                assert partials is not None
+                max_err = partials[:, :, 9].amax(dim=1)
                 values["tail_vector_error"] = _histogram_quantile(
                     err_hist, max_err, self.tail_vector_q
                 )
 
         if "tangential_normal_leak" in selected_set:
+            assert sums is not None
+            count = sums[:, 0].clamp_min(1.0)
+            sum_gn_sq = sums[:, 5]
+            sum_gt_sq = sums[:, 6]
             e_n = sum_gn_sq / count
             e_t = sum_gt_sq / count
             finite = 10.0 * torch.log10(e_t / e_n)
@@ -285,10 +364,17 @@ class TritonPixelEvaluator:
             )
 
         if "magnitude_bias" in selected_set:
+            assert sums is not None
+            sum_mag_t = sums[:, 2]
+            sum_mag_f = sums[:, 7]
             values["magnitude_bias"] = sum_mag_f / sum_mag_t.clamp_min(1e-30) - 1.0
 
         if "noise_gain" in selected_set:
             assert self.sigma_n is not None
+            assert sums is not None
+            count = sums[:, 0].clamp_min(1.0)
+            sum_mag_f = sums[:, 7]
+            sum_mag_f_sq = sums[:, 8]
             mean = sum_mag_f / count
             var = (sum_mag_f_sq / count - mean * mean).clamp_min(0.0)
             std = torch.sqrt(var)
@@ -305,6 +391,8 @@ class TritonPixelEvaluator:
                     mag_f.reshape(B, -1), self.tail_spurious_q, dim=1
                 )
             else:
+                assert partials is not None
+                max_mag = partials[:, :, 10].amax(dim=1)
                 values["tail_spurious_grad"] = _histogram_quantile(
                     mag_hist, max_mag, self.tail_spurious_q
                 )

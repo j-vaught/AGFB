@@ -67,6 +67,27 @@ def test_triton_pixel_matches_torch_full_image_metrics() -> None:
 
 
 @pytest.mark.skipif(not is_triton_pixel_available(), reason="Triton CUDA is unavailable")
+def test_triton_pixel_matches_each_metric_individually() -> None:
+    gx, gy, gx_t, gy_t = _case(torch.device("cuda"))
+
+    for name in PIXEL_METRICS:
+        evaluator = TritonPixelEvaluator(metrics=(name,), sigma_n=0.01, tail_mode="histogram")
+        out = evaluator(gx, gy, gx_t, gy_t, signal_mask=None, flat_mask=None)
+        expected = evaluate_metrics(
+            gx,
+            gy,
+            gx_t,
+            gy_t,
+            metrics=(name,),
+            signal_mask=None,
+            flat_mask=None,
+            sigma_n=0.01,
+        )
+
+        assert torch.allclose(out[name], expected[name], equal_nan=True, atol=2e-3, rtol=2e-3)
+
+
+@pytest.mark.skipif(not is_triton_pixel_available(), reason="Triton CUDA is unavailable")
 def test_triton_pixel_histogram_tails_match_torch_quantiles_closely() -> None:
     gx, gy, gx_t, gy_t = _case(torch.device("cuda"))
     evaluator = TritonPixelEvaluator(

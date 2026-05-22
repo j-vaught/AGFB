@@ -30,6 +30,7 @@ for repeated same-shape CUDA batches.
 `TritonPixelEvaluator(metrics=PIXEL_METRICS)` evaluates full-image pixel metrics
 with a fused Triton reduction kernel on CUDA tensors.
 Use `tail_mode="histogram"` for fast approximate tail percentiles.
+The Triton kernel specializes to the selected metric names.
 
 ## Conventions
 
