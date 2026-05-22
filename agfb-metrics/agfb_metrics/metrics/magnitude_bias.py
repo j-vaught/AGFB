@@ -27,17 +27,17 @@ def magnitude_bias(
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,
     g_y_t: torch.Tensor,
-    signal_mask: torch.Tensor,
+    signal_mask: torch.Tensor | None,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
     check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
-    if signal_mask.shape != g_x.shape:
+    if signal_mask is not None and signal_mask.shape != g_x.shape:
         raise ValueError(f"signal_mask {signal_mask.shape} must match (B, H, W) {g_x.shape}")
 
     mag_f = magnitude(g_x, g_y)
     mag_t = magnitude(g_x_t, g_y_t)
 
-    count = masked_count_per_image(signal_mask)
+    count = masked_count_per_image(signal_mask, mag_f)
     num = masked_sum_per_image(mag_f, signal_mask)
     den = masked_sum_per_image(mag_t, signal_mask).clamp_min(1e-30)
     out = num / den - 1.0

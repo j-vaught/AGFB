@@ -22,13 +22,13 @@ def tail_vector_error(
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,
     g_y_t: torch.Tensor,
-    signal_mask: torch.Tensor,
+    signal_mask: torch.Tensor | None,
     *,
     q: float = 0.95,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
     check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
-    if signal_mask.shape != g_x.shape:
+    if signal_mask is not None and signal_mask.shape != g_x.shape:
         raise ValueError(f"signal_mask {signal_mask.shape} must match (B, H, W) {g_x.shape}")
     if not 0.0 < q < 1.0:
         raise ValueError(f"q must be in (0, 1); got {q}")

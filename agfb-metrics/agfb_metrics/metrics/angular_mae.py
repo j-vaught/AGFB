@@ -28,13 +28,13 @@ def angular_mae(
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,
     g_y_t: torch.Tensor,
-    signal_mask: torch.Tensor,
+    signal_mask: torch.Tensor | None,
     *,
     eps: float = 1e-12,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
     check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
-    if signal_mask.shape != g_x.shape:
+    if signal_mask is not None and signal_mask.shape != g_x.shape:
         raise ValueError(f"signal_mask {signal_mask.shape} must match (B, H, W) {g_x.shape}")
 
     dot = g_x * g_x_t + g_y * g_y_t
@@ -43,5 +43,7 @@ def angular_mae(
     denom = (mag_f * mag_t).clamp_min(eps)
     cos_theta = (dot / denom).clamp(-1.0, 1.0)
     theta_deg = torch.arccos(cos_theta) * (180.0 / torch.pi)
-    valid = signal_mask & (mag_f > eps) & (mag_t > eps)
+    valid = (mag_f > eps) & (mag_t > eps)
+    if signal_mask is not None:
+        valid = signal_mask & valid
     return masked_mean_per_image(theta_deg, valid)

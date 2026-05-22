@@ -3,6 +3,8 @@
 from agfb_metrics.metrics import (
     angular_mae,
     edge_fwhm,
+    evaluate_all_metrics,
+    evaluate_metrics,
     localization_offset,
     magnitude,
     magnitude_bias,
@@ -28,6 +30,8 @@ __all__ = [
     "sidelobe_ratio",
     "noise_gain",
     "tail_spurious_grad",
+    "evaluate_metrics",
+    "evaluate_all_metrics",
     "magnitude",
     "masks",
     "ridge_mask_from_truth",

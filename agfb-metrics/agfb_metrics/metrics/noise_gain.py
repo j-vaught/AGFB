@@ -24,11 +24,11 @@ from agfb_metrics.metrics.base import check_grad_pair, magnitude, masked_std_per
 def noise_gain(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
-    flat_mask: torch.Tensor,
+    flat_mask: torch.Tensor | None,
     sigma_n: float,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
-    if flat_mask.shape != g_x.shape:
+    if flat_mask is not None and flat_mask.shape != g_x.shape:
         raise ValueError(f"flat_mask {flat_mask.shape} must match (B, H, W) {g_x.shape}")
     if not sigma_n > 0:
         raise ValueError(f"sigma_n must be positive; got {sigma_n}")

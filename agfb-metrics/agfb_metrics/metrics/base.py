@@ -32,24 +32,34 @@ def magnitude(g_x: torch.Tensor, g_y: torch.Tensor) -> torch.Tensor:
     return torch.sqrt(g_x * g_x + g_y * g_y)
 
 
-def masked_count_per_image(mask: torch.Tensor) -> torch.Tensor:
+def masked_count_per_image(mask: torch.Tensor | None, values: torch.Tensor) -> torch.Tensor:
     """Count true mask values per image as `(B,)` float32 on the mask device."""
+    if mask is None:
+        pixels_per_image = values.shape[1] * values.shape[2]
+        return torch.full(
+            (values.shape[0],),
+            float(pixels_per_image),
+            dtype=torch.float32,
+            device=values.device,
+        )
     if mask.ndim != 3:
         raise ValueError(f"mask must be (B, H, W); got {tuple(mask.shape)}")
     return mask.reshape(mask.shape[0], -1).sum(dim=1).to(torch.float32)
 
 
-def masked_sum_per_image(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+def masked_sum_per_image(values: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
     """Sum masked values per image as `(B,)` float32 on the values device."""
+    if mask is None:
+        return values.reshape(values.shape[0], -1).sum(dim=1)
     if values.shape != mask.shape:
         raise ValueError(f"values {values.shape} and mask {mask.shape} must match")
     masked = torch.where(mask, values, torch.zeros_like(values))
     return masked.reshape(values.shape[0], -1).sum(dim=1)
 
 
-def masked_mean_per_image(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+def masked_mean_per_image(values: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
     """Mean of masked values per image; empty masks yield NaN."""
-    count = masked_count_per_image(mask)
+    count = masked_count_per_image(mask, values)
     total = masked_sum_per_image(values, mask)
     mean = total / count.clamp_min(1.0)
     return torch.where(count > 0, mean, torch.full_like(mean, float("nan")))
@@ -57,12 +67,22 @@ def masked_mean_per_image(values: torch.Tensor, mask: torch.Tensor) -> torch.Ten
 
 def masked_std_per_image(
     values: torch.Tensor,
-    mask: torch.Tensor,
+    mask: torch.Tensor | None,
     *,
     min_count: int = 1,
 ) -> torch.Tensor:
     """Population std of masked values per image; small masks yield NaN."""
-    count = masked_count_per_image(mask)
+    if mask is None:
+        flat = values.reshape(values.shape[0], -1)
+        count = torch.full(
+            (values.shape[0],),
+            float(flat.shape[1]),
+            dtype=torch.float32,
+            device=values.device,
+        )
+        std = torch.std(flat, dim=1, unbiased=False)
+        return torch.where(count >= float(min_count), std, torch.full_like(std, float("nan")))
+    count = masked_count_per_image(mask, values)
     mean = masked_sum_per_image(values, mask) / count.clamp_min(1.0)
     centered_sq = torch.where(mask, (values - mean.view(-1, 1, 1)) ** 2, torch.zeros_like(values))
     var = centered_sq.reshape(values.shape[0], -1).sum(dim=1) / count.clamp_min(1.0)
@@ -72,14 +92,16 @@ def masked_std_per_image(
 
 def masked_quantile_per_image(
     values: torch.Tensor,
-    mask: torch.Tensor,
+    mask: torch.Tensor | None,
     q: float,
 ) -> torch.Tensor:
     """Linear-interpolated quantile of masked values per image; empty masks yield NaN."""
-    if values.shape != mask.shape:
-        raise ValueError(f"values {values.shape} and mask {mask.shape} must match")
     if not 0.0 < q < 1.0:
         raise ValueError(f"q must be in (0, 1); got {q}")
+    if mask is None:
+        return torch.quantile(values.reshape(values.shape[0], -1), q, dim=1)
+    if values.shape != mask.shape:
+        raise ValueError(f"values {values.shape} and mask {mask.shape} must match")
 
     B = values.shape[0]
     flat_values = values.reshape(B, -1)

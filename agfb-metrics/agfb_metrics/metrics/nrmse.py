@@ -34,17 +34,17 @@ def nrmse(
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,
     g_y_t: torch.Tensor,
-    signal_mask: torch.Tensor,
+    signal_mask: torch.Tensor | None,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
     check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
-    if signal_mask.shape != g_x.shape:
+    if signal_mask is not None and signal_mask.shape != g_x.shape:
         raise ValueError(f"signal_mask {signal_mask.shape} must match (B, H, W) {g_x.shape}")
 
     err_sq = (g_x - g_x_t) ** 2 + (g_y - g_y_t) ** 2
     mag_true = magnitude(g_x_t, g_y_t)
 
-    count = masked_count_per_image(signal_mask)
+    count = masked_count_per_image(signal_mask, err_sq)
     num = torch.sqrt(masked_sum_per_image(err_sq, signal_mask) / count.clamp_min(1.0))
     den = masked_mean_per_image(mag_true, signal_mask).clamp_min(1e-30)
     out = num / den

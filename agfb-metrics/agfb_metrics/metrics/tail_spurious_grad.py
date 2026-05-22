@@ -20,12 +20,12 @@ from agfb_metrics.metrics.base import check_grad_pair, magnitude, masked_quantil
 def tail_spurious_grad(
     g_x: torch.Tensor,
     g_y: torch.Tensor,
-    flat_mask: torch.Tensor,
+    flat_mask: torch.Tensor | None,
     *,
     q: float = 0.99,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
-    if flat_mask.shape != g_x.shape:
+    if flat_mask is not None and flat_mask.shape != g_x.shape:
         raise ValueError(f"flat_mask {flat_mask.shape} must match (B, H, W) {g_x.shape}")
     if not 0.0 < q < 1.0:
         raise ValueError(f"q must be in (0, 1); got {q}")

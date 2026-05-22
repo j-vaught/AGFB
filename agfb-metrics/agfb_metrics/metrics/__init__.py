@@ -8,6 +8,12 @@ from agfb_metrics.metrics.base import (
     unit_normal_from_truth,
 )
 from agfb_metrics.metrics.edge_fwhm import edge_fwhm
+from agfb_metrics.metrics.evaluator import (
+    ALL_METRICS,
+    MetricName,
+    evaluate_all_metrics,
+    evaluate_metrics,
+)
 from agfb_metrics.metrics.localization_offset import localization_offset
 from agfb_metrics.metrics.magnitude_bias import magnitude_bias
 from agfb_metrics.metrics.noise_gain import noise_gain
@@ -28,6 +34,10 @@ __all__ = [
     "sidelobe_ratio",
     "noise_gain",
     "tail_spurious_grad",
+    "MetricName",
+    "ALL_METRICS",
+    "evaluate_metrics",
+    "evaluate_all_metrics",
     "magnitude",
     "masks",
     "ridge_mask_from_truth",

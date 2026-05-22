@@ -38,13 +38,13 @@ def tangential_normal_leak(
     g_y: torch.Tensor,
     g_x_t: torch.Tensor,
     g_y_t: torch.Tensor,
-    signal_mask: torch.Tensor,
+    signal_mask: torch.Tensor | None,
     *,
     eps: float = 1e-30,
 ) -> torch.Tensor:
     check_grad_pair(g_x, g_y, name="filter gradient")
     check_grad_pair(g_x_t, g_y_t, name="ground-truth gradient")
-    if signal_mask.shape != g_x.shape:
+    if signal_mask is not None and signal_mask.shape != g_x.shape:
         raise ValueError(f"signal_mask {signal_mask.shape} must match (B, H, W) {g_x.shape}")
 
     n_x, n_y = unit_normal_from_truth(g_x_t, g_y_t)
@@ -53,7 +53,7 @@ def tangential_normal_leak(
     g_n = g_x * n_x + g_y * n_y
     g_t = g_x * t_x + g_y * t_y
 
-    count = masked_count_per_image(signal_mask)
+    count = masked_count_per_image(signal_mask, g_n)
     e_n = masked_sum_per_image(g_n * g_n, signal_mask) / count.clamp_min(1.0)
     e_t = masked_sum_per_image(g_t * g_t, signal_mask) / count.clamp_min(1.0)
     finite = 10.0 * torch.log10(e_t / e_n)
