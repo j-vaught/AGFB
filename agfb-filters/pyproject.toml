@@ -17,6 +17,7 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.10.9",
     "pytest>=8.0",
     "ruff>=0.7",
     "ty>=0.0.1a8",
@@ -36,7 +37,7 @@ torch = [
 pythonpath = ["."]
 
 [tool.ty.src]
-exclude = ["tests/test_pipeline_integration.py"]
+exclude = ["tests/test_pipeline_integration.py", "notebooks"]
 
 [tool.ruff]
 line-length = 100
