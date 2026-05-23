@@ -197,53 +197,5 @@ for large sweeps over filters, seeds, and parameter grids. A common workflow is
 to run sweeps with histogram tails, select the cases of interest, and recompute
 the selected results with exact tails.
 
-## Performance
-
-The following timings were measured on `comech-2422` using an NVIDIA RTX 6000
-Ada GPU and PyTorch `2.8.0+cu128`. Inputs were full-image `4096x4096` CUDA
-tensors with `signal_mask=None` and `flat_mask=None`. Times are median hot-path
-milliseconds after warmup.
-
-| Evaluator | Batch | Metric set | Time |
-|-----------|-------|------------|------|
-| `MetricEvaluator(use_compile=True)` | `B=1` | `PIXEL_METRICS`, exact tails | `6.08 ms` |
-| `TritonPixelEvaluator(tail_mode="histogram")` | `B=1` | `PIXEL_METRICS`, histogram tails | `3.77 ms` |
-| `MetricEvaluator(use_compile=True)` | `B=4` | `PIXEL_METRICS`, exact tails | `25.65 ms` |
-| `TritonPixelEvaluator(tail_mode="histogram")` | `B=4` | `PIXEL_METRICS`, histogram tails | `6.44 ms` |
-
-Single-metric timings for `B=1`, `4096x4096` full-image inputs are shown below.
-
-| Metric | PyTorch compiled exact | Triton exact | Triton histogram |
-|--------|------------------------|--------------|------------------|
-| `nrmse` | `1.022 ms` | `0.354 ms` | `0.354 ms` |
-| `angular_mae` | `0.988 ms` | `0.352 ms` | `0.352 ms` |
-| `tail_vector_error` | `3.505 ms` | `3.488 ms` | `2.084 ms` |
-| `tangential_normal_leak` | `0.987 ms` | `0.370 ms` | `0.369 ms` |
-| `magnitude_bias` | `1.507 ms` | `0.348 ms` | `0.351 ms` |
-| `noise_gain` | `0.676 ms` | `0.208 ms` | `0.208 ms` |
-| `tail_spurious_grad` | `3.108 ms` | `3.095 ms` | `3.292 ms` |
-
-The reduction-style metrics benefit most from Triton specialization. Exact
-tail metrics are dominated by quantile computation. Histogram tails trade exact
-quantile ordering for much higher sweep throughput.
-
-## Repository Layout
-
-`agfb_metrics/metrics/` contains metric functions, shared tensor helpers, the
-PyTorch shared evaluator, and the Triton full-image pixel evaluator.
-`tests/` contains unit tests, integration checks against the prototype behavior,
-and skip-safe Triton tests.
-
-## Development Workflow
-
-Run the standard project checks before committing changes.
-
-```bash
-uv sync
-uv run ruff format .
-uv run ruff check . --fix
-uv run ty check .
-uv run pytest
-```
 
 Author: J.C. Vaught.
