@@ -1,4 +1,4 @@
-"""Runtime helpers for applying configured AGFB noise models."""
+"""Compatibility imports for name-based noise execution."""
 
 from agfb_noise.helpers.runner import NoiseSpec, add_noise, apply_noise_sequence
 

@@ -8,8 +8,8 @@ from typing import Any
 
 import torch
 
-from agfb_noise.base import ClampRange, apply_clamp
-from agfb_noise.registry import get_noise_registration
+from agfb_noise.helpers.base import ClampRange, apply_clamp
+from agfb_noise.helpers.registry import get_noise_registration
 
 
 @dataclass(frozen=True)

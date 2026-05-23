@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from agfb_noise.base import ClampRange, Numeric, apply_clamp, check_image
+from agfb_noise.helpers.base import ClampRange, Numeric, apply_clamp, check_image
 
 NOISE_SPECS = (
     {

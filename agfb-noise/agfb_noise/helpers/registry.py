@@ -9,8 +9,8 @@ from typing import Any
 
 import torch
 
-from agfb_noise.base import ClampRange
-from agfb_noise.catalog import shipped_noise_specs
+from agfb_noise.helpers.base import ClampRange
+from agfb_noise.helpers.catalog import shipped_noise_specs
 
 NoiseFunction = Callable[..., torch.Tensor]
 

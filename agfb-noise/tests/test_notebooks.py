@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agfb_noise.catalog import shipped_noise_specs
+from agfb_noise.helpers.catalog import shipped_noise_specs
 
 
 def test_noise_notebooks_exist_for_each_shipped_model() -> None:
