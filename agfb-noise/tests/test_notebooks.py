@@ -48,6 +48,13 @@ def test_noise_notebooks_are_source_only_and_use_1024_image() -> None:
             "".join(cell.get("source", [])) for cell in data["cells"] if cell["cell_type"] == "code"
         )
         assert "synthetic_1024_image" in source
+        markdown_source = "\n".join(
+            "".join(cell.get("source", []))
+            for cell in data["cells"]
+            if cell["cell_type"] == "markdown"
+        )
+        assert "## Noise Context" in markdown_source
+        assert "https://" in markdown_source
         for cell in data["cells"]:
             if cell["cell_type"] == "code":
                 assert cell["outputs"] == []
