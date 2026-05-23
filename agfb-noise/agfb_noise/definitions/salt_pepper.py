@@ -29,6 +29,8 @@ def add_salt_pepper(
     image: torch.Tensor,
     *,
     amount: Numeric,
+    salt: bool = True,
+    pepper: bool = True,
     salt_vs_pepper: Numeric = 0.5,
     salt_value: Numeric = 1.0,
     pepper_value: Numeric = 0.0,
@@ -36,16 +38,34 @@ def add_salt_pepper(
     generator: torch.Generator | None = None,
     clamp: ClampRange = None,
 ) -> torch.Tensor:
-    """Replace random pixels with salt and pepper values."""
+    """Replace random pixels with optional salt and pepper values."""
     image = check_image(image)
     gen = resolve_generator(image, seed=seed, generator=generator)
     amount_t = batch_param(amount, image, name="amount")
-    salt_vs_pepper_t = batch_param(salt_vs_pepper, image, name="salt_vs_pepper")
+    validate_probability(amount_t, "amount")
+
+    if not isinstance(salt, bool):
+        raise TypeError("salt must be a bool")
+    if not isinstance(pepper, bool):
+        raise TypeError("pepper must be a bool")
+    if not salt and not pepper:
+        return apply_clamp(image, clamp)
+
     salt_value_t = batch_param(salt_value, image, name="salt_value")
     pepper_value_t = batch_param(pepper_value, image, name="pepper_value")
-    validate_probability(amount_t, "amount")
-    validate_probability(salt_vs_pepper_t, "salt_vs_pepper")
     draws = rand_like(image, gen)
+
+    if salt and not pepper:
+        return apply_clamp(
+            torch.where(draws < amount_t, salt_value_t.expand_as(image), image), clamp
+        )
+    if pepper and not salt:
+        return apply_clamp(
+            torch.where(draws < amount_t, pepper_value_t.expand_as(image), image), clamp
+        )
+
+    salt_vs_pepper_t = batch_param(salt_vs_pepper, image, name="salt_vs_pepper")
+    validate_probability(salt_vs_pepper_t, "salt_vs_pepper")
     salt_threshold = amount_t * salt_vs_pepper_t
     pepper_threshold = amount_t
     salted = draws < salt_threshold

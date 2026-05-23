@@ -11,12 +11,14 @@ from agfb_noise import (
     add_gaussian,
     add_local_variance,
     add_noise,
+    add_pepper,
     add_poisson,
     add_poisson_gaussian,
     add_quantization,
     add_random_impulse,
     add_rayleigh,
     add_rician,
+    add_salt,
     add_salt_pepper,
     add_speckle,
     add_stripe,
@@ -102,6 +104,52 @@ def test_impulse_models_replace_requested_values() -> None:
     assert torch.all(random_impulse >= -2.0)
     assert torch.all(random_impulse <= 2.0)
     assert set(dead.unique().tolist()) <= {-1.0, 2.0}
+
+
+def test_salt_pepper_can_disable_one_side() -> None:
+    image = torch.full((1, 8, 8), 0.5)
+
+    salt_only = add_salt_pepper(
+        image,
+        amount=1.0,
+        pepper=False,
+        salt_value=2.0,
+        pepper_value=-1.0,
+        seed=4,
+    )
+    pepper_only = add_salt_pepper(
+        image,
+        amount=1.0,
+        salt=False,
+        salt_value=2.0,
+        pepper_value=-1.0,
+        seed=4,
+    )
+    disabled = add_salt_pepper(
+        image,
+        amount=1.0,
+        salt=False,
+        pepper=False,
+        salt_value=2.0,
+        pepper_value=-1.0,
+        seed=4,
+    )
+
+    assert torch.equal(salt_only, torch.full_like(image, 2.0))
+    assert torch.equal(pepper_only, torch.full_like(image, -1.0))
+    assert torch.equal(disabled, image)
+
+
+def test_salt_and_pepper_wrappers_match_salt_pepper_toggles() -> None:
+    image = torch.full((1, 16, 16), 0.5)
+
+    salt = add_salt(image, amount=0.25, salt_value=2.0, seed=7)
+    salt_toggle = add_salt_pepper(image, amount=0.25, pepper=False, salt_value=2.0, seed=7)
+    pepper = add_pepper(image, amount=0.25, pepper_value=-1.0, seed=7)
+    pepper_toggle = add_salt_pepper(image, amount=0.25, salt=False, pepper_value=-1.0, seed=7)
+
+    assert torch.equal(salt, salt_toggle)
+    assert torch.equal(pepper, pepper_toggle)
 
 
 def test_multiplicative_and_magnitude_models_preserve_shape() -> None:

@@ -72,6 +72,8 @@ In Visual Studio Code, open this repository folder directly so `.vscode/settings
 
 The shipped set starts with the practical image-noise modes used by common denoising tools. The `random_noise` API in scikit-image covers additive Gaussian noise, local-variance Gaussian noise, Poisson noise, salt, pepper, salt-and-pepper, and multiplicative speckle, which is a useful baseline vocabulary for image-processing experiments. The impulse models are also supported by image-denoising surveys that distinguish fixed-valued impulse noise from random-valued impulse noise.
 
+The `salt_pepper` model is the shared fixed-valued impulse implementation. Set `salt=False` for pepper-only replacement or `pepper=False` for salt-only replacement. The `salt` and `pepper` functions are convenience wrappers around those toggles.
+
 For camera-like raw data, the package includes Poisson, Poisson-Gaussian, dark-current, quantization, fixed-pattern, stripe, and defect-pixel models. Foi et al. model raw sensor data with a signal-dependent Poissonian component and a signal-independent Gaussian component. EMVA 1288 describes image-sensor characterization around photon transfer, temporal dark noise, dark current, quantization noise, spatial nonuniformity, row and column effects, and defect pixels.
 
 For coherent and medical imaging, the package includes multiplicative speckle, gamma speckle, Rician, and Rayleigh models. Goodman describes coherent speckle as an interference-driven granular irradiance pattern. Gudbjartsson and Patz show that magnitude magnetic resonance images are governed by a Rician distribution, with Rayleigh behavior in pure-noise magnitude regions.

@@ -4,16 +4,8 @@ from __future__ import annotations
 
 import torch
 
-from agfb_noise.helpers.base import (
-    ClampRange,
-    Numeric,
-    apply_clamp,
-    batch_param,
-    check_image,
-    rand_like,
-    resolve_generator,
-    validate_probability,
-)
+from agfb_noise.definitions.salt_pepper import add_salt_pepper
+from agfb_noise.helpers.base import ClampRange, Numeric
 
 NOISE_SPECS = (
     {
@@ -34,10 +26,12 @@ def add_pepper(
     clamp: ClampRange = None,
 ) -> torch.Tensor:
     """Replace random pixels with `pepper_value`."""
-    image = check_image(image)
-    gen = resolve_generator(image, seed=seed, generator=generator)
-    amount_t = batch_param(amount, image, name="amount")
-    pepper_value_t = batch_param(pepper_value, image, name="pepper_value")
-    validate_probability(amount_t, "amount")
-    out = torch.where(rand_like(image, gen) < amount_t, pepper_value_t.expand_as(image), image)
-    return apply_clamp(out, clamp)
+    return add_salt_pepper(
+        image,
+        amount=amount,
+        salt=False,
+        pepper_value=pepper_value,
+        seed=seed,
+        generator=generator,
+        clamp=clamp,
+    )
