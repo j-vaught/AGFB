@@ -2,7 +2,7 @@
 
 **Overview**
 
-`agfb-noise` provides fast batched PyTorch noise models for AGFB image tensors. The package mirrors the other AGFB repositories. Noise model definitions live in `agfb_noise/definitions/`, shared tensor and dispatch helpers live in `agfb_noise/helpers/`, and thin compatibility modules preserve the original package-root import paths.
+`agfb-noise` provides fast batched PyTorch noise models for AGFB image tensors. The package mirrors the other AGFB repositories. Noise model definitions live in `agfb_noise/definitions/`, shared tensor and dispatch helpers live in `agfb_noise/helpers/`, and the package root exposes the public API from `agfb_noise/__init__.py`.
 
 All direct model functions keep random generation on the input tensor device. Scalar parameters broadcast over the full image. One-dimensional tensor parameters broadcast across the first axis, so a single call can apply different noise levels to each image in a batch.
 
