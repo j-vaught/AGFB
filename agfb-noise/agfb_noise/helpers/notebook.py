@@ -9,7 +9,6 @@ import io
 import math
 import struct
 from collections.abc import Mapping
-from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -73,7 +72,7 @@ def show_noise_preview(
     *,
     title: str,
     max_size: int = 384,
-) -> Any:
+) -> str | None:
     """Display clean, noisy, and residual tensors as inline notebook bitmaps."""
     clean_2d = _as_2d(clean)
     noisy_2d = _as_2d(noisy)
@@ -94,7 +93,7 @@ def show_noise_preview(
         return html_text
     html_obj = display_module.HTML(html_text)
     display_module.display(html_obj)
-    return html_obj
+    return None
 
 
 def _as_2d(tensor: torch.Tensor) -> torch.Tensor:
