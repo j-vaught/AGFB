@@ -6,9 +6,16 @@ from pathlib import Path
 from agfb_noise.helpers.catalog import shipped_noise_specs
 
 
+def _noise_notebook_dir(root: Path) -> Path:
+    nested = root / "notebooks" / "noise"
+    if nested.is_dir():
+        return nested
+    return root / "notebooks"
+
+
 def test_noise_notebooks_exist_for_each_shipped_model() -> None:
     root = Path(__file__).resolve().parents[1]
-    notebook_dir = root / "notebooks" / "noise"
+    notebook_dir = _noise_notebook_dir(root)
 
     missing = [
         spec.name
@@ -21,7 +28,7 @@ def test_noise_notebooks_exist_for_each_shipped_model() -> None:
 
 def test_noise_notebooks_are_source_only_and_use_1024_image() -> None:
     root = Path(__file__).resolve().parents[1]
-    notebooks = sorted((root / "notebooks" / "noise").glob("*.ipynb"))
+    notebooks = sorted(_noise_notebook_dir(root).glob("*.ipynb"))
 
     assert notebooks
     for path in notebooks:
