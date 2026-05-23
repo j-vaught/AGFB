@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from importlib import import_module
@@ -35,13 +36,12 @@ class NoiseRegistration:
     ) -> torch.Tensor:
         params = {} if self.default_kwargs is None else dict(self.default_kwargs)
         params.update(kwargs)
-        return self.function(
-            image,
-            seed=seed,
-            generator=generator,
-            clamp=clamp,
-            **params,
-        )
+        call_kwargs = {"clamp": clamp, **params}
+        if _accepts_keyword(self.function, "seed"):
+            call_kwargs["seed"] = seed
+        if _accepts_keyword(self.function, "generator"):
+            call_kwargs["generator"] = generator
+        return self.function(image, **call_kwargs)
 
 
 _REGISTRY: dict[str, NoiseRegistration] = {}
@@ -124,6 +124,13 @@ def _normalize_name(name: str) -> str:
     if not normalized:
         raise ValueError("noise name must not be empty")
     return normalized
+
+
+def _accepts_keyword(function: NoiseFunction, name: str) -> bool:
+    parameters = inspect.signature(function).parameters
+    return name in parameters or any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
 
 
 def _ensure_builtin_noises() -> None:
