@@ -4,13 +4,13 @@
 
 `agfb-noise` provides fast batched PyTorch noise models for images in the Analytic Gradient Filter Benchmark (AGFB) project family. AGFB packages use synthetic and experimental image tensors to evaluate gradient filters, gradient-field metrics, and related image-processing workflows. This package focuses on controlled image corruption, so the same clean AGFB input can be evaluated under camera-like, impulse, coherent-imaging, and quantization noise.
 
-The package is intentionally tensor-first. Every direct model accepts a floating-point `torch.Tensor`, keeps random generation on the input tensor device, and returns a tensor with the same shape and dtype. The common AGFB convention is `(B, H, W)`, where `$B$` is batch size, `$H$` is image height, and `$W$` is image width. The functions also work on other image-shaped floating tensors when the requested parameter broadcasting is valid.
+Every direct model accepts a floating-point `torch.Tensor`, keeps random generation on the input tensor device, and returns a tensor with the same shape and dtype. The common AGFB convention is `(B, H, W)`, where `$B$` is batch size, `$H$` is image height, and `$W$` is image width. The functions also work on other image-shaped floating tensors when the requested parameter broadcasting is valid.
 
 Scalar parameters apply to every pixel. One-dimensional tensor parameters broadcast across the leading batch dimension, which makes it possible to apply different noise strengths to each image in one call. Parameters that represent a full image, such as a local variance map, may also match the input tensor shape exactly. Output clipping is opt-in through `clamp=(low, high)`, so the caller decides whether simulated noise should be allowed to leave the nominal image range.
 
 **Installation**
 
-Install from PyPI after release with either `python -m pip install agfb-noise` or `uv add agfb-noise`. Until a package release is cut, install directly from the repository with `python -m pip install git+https://github.com/j-vaught/agfb-noise.git` or `uv add git+https://github.com/j-vaught/agfb-noise.git`.
+Install directly from the repository with `python -m pip install git+https://github.com/j-vaught/agfb-noise.git` or `uv add git+https://github.com/j-vaught/agfb-noise.git`.
 
 PyTorch is the core runtime dependency. The project declares `torch>=2.4,<2.7` and `numpy>=2.0`. On Linux, the included `uv` configuration uses the PyTorch CUDA 12.4 wheel index for `torch`; on macOS and other non-Linux platforms it follows the normal PyTorch package resolution. If your environment needs a different CUDA runtime or a CPU-only PyTorch build, install the appropriate PyTorch wheel first and then install this package into the same environment.
 
@@ -89,12 +89,6 @@ uv run python -m ipykernel install --sys-prefix --name agfb-noise --display-name
 ```
 
 When working in Visual Studio Code or JupyterLab, open the repository root and select the `agfb-noise (.venv)` kernel. The notebooks are intentionally saved without outputs so they stay small and easy to review.
-
-**Package Layout**
-
-The public API is re-exported from `agfb_noise/__init__.py`. Noise definitions live in `agfb_noise/definitions/`. Shared tensor validation, broadcasting, random-number helpers, dispatch helpers, registry code, and notebook display utilities live in `agfb_noise/helpers/`.
-
-The package includes no compiled extension modules. Performance comes from vectorized PyTorch operations and from running the functions on CUDA tensors when a CUDA-enabled PyTorch build is available.
 
 **Development**
 
