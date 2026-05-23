@@ -1,7 +1,7 @@
 [project]
 name = "agfb-noise"
 version = "0.1.0"
-description = "Fast batched noise models for AGFB images"
+description = "Fast batched noise models for Analytic Gradient Filter Benchmark images"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -25,7 +25,6 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 dev = [
     "ipykernel>=6.29",
-    "pytest>=8.0",
     "ruff>=0.7",
     "ty>=0.0.1a8",
 ]
@@ -39,9 +38,6 @@ explicit = true
 torch = [
     { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
 ]
-
-[tool.pytest.ini_options]
-pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
