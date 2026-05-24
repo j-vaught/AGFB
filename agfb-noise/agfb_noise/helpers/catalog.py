@@ -23,6 +23,7 @@ class BuiltInNoiseSpec:
 
 _NOISE_MODULES = (
     "agfb_noise.definitions.gaussian",
+    "agfb_noise.definitions.correlated_gaussian",
     "agfb_noise.definitions.local_variance",
     "agfb_noise.definitions.uniform",
     "agfb_noise.definitions.poisson",

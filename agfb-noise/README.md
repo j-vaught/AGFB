@@ -52,6 +52,10 @@ Randomness is local to the call when `seed` is provided. The helper creates a `t
 | Model | Registered names | Typical use |
 | --- | --- | --- |
 | Additive Gaussian | `gaussian`, `normal`, `awgn` | Signal-independent read noise, electronic noise, and baseline denoising experiments. |
+| Correlated Gaussian | `correlated_gaussian`, `gaussian_random_field`, `grf` | Spatially correlated additive Gaussian random fields. |
+| Power-law Gaussian | `powerlaw_gaussian`, `colored_gaussian`, `colored_noise` | Colored Gaussian noise with power spectral density proportional to `$1/f^\beta$`. |
+| Anisotropic Gaussian | `anisotropic_gaussian` | Directional Gaussian random fields with separate horizontal and vertical correlation lengths. |
+| Correlated speckle | `correlated_speckle` | Multiplicative Gaussian speckle with spatial correlation. |
 | Local-variance Gaussian | `local_variance`, `localvar`, `local_variance_gaussian` | Spatially varying or signal-dependent variance maps. |
 | Additive uniform | `uniform` | Bounded perturbations, simple dither, and controlled robustness tests. |
 | Poisson shot noise | `poisson`, `shot`, `shot_noise` | Photon-counting and electron-counting uncertainty. |

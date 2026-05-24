@@ -1,4 +1,5 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -9,4 +10,5 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+.ty/
 .DS_Store

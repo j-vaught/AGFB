@@ -1,5 +1,11 @@
 """Fast batched noise models for AGFB images."""
 
+from agfb_noise.definitions.correlated_gaussian import (
+    add_anisotropic_gaussian,
+    add_correlated_gaussian,
+    add_correlated_speckle,
+    add_powerlaw_gaussian,
+)
 from agfb_noise.definitions.dark_current import add_dark_current
 from agfb_noise.definitions.dead_pixel import add_dead_pixels
 from agfb_noise.definitions.fixed_pattern import add_fixed_pattern
@@ -39,6 +45,10 @@ __all__ = [
     "add_fixed_pattern",
     "add_gamma_speckle",
     "add_gaussian",
+    "add_correlated_gaussian",
+    "add_powerlaw_gaussian",
+    "add_anisotropic_gaussian",
+    "add_correlated_speckle",
     "add_local_variance",
     "add_noise",
     "add_pepper",
