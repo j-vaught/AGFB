@@ -70,6 +70,35 @@ Randomness is local to the call when `seed` is provided. The helper creates a `t
 | Gamma speckle | `gamma_speckle`, `multilook_speckle` | Multilook coherent-imaging intensity speckle. |
 | Rician magnitude noise | `rician`, `rice` | Magnitude magnetic resonance imaging and quadrature-channel amplitude data. |
 | Rayleigh positive noise | `rayleigh` | Positive magnitude noise and no-signal magnitude regions. |
+| Nakagami speckle | `nakagami_speckle` | Multiplicative Nakagami-distributed amplitude speckle. |
+| K speckle | `k_speckle` | Heavy-tailed coherent-imaging speckle from gamma texture and speckle terms. |
+| OCT speckle | `oct_speckle` | Log-amplitude multiplicative speckle for optical coherence tomography-style data. |
+| SAR multilook | `sar_multilook`, `enl_speckle` | Unit-mean gamma speckle controlled by equivalent number of looks. |
+| Noncentral chi magnitude noise | `noncentral_chi` | Multi-channel magnitude noise for reconstructed amplitude images. |
+| Log speckle | `log_speckle` | Homomorphic log-domain multiplicative speckle. |
+| Log-normal scintillation | `lognormal_scintillation` | Unit-mean multiplicative log-normal scintillation. |
+| PRNU | `prnu` | Photo-response nonuniformity gain variation. |
+| Row-correlated read noise | `row_correlated_read_noise`, `row_read_noise`, `banding_read_noise` | Row-wise read offsets and horizontal banding. |
+| RTS noise | `rts_noise`, `burst_noise` | Sparse random telegraph signal switching offsets. |
+| Saturation clip | `saturation_clip` | Sensor saturation and clipping. |
+| Photon-transfer chain | `photon_transfer_chain` | Compact shot, dark, PRNU, DSNU, read, and ADC sensor chain. |
+| DSNU | `dsnu` | Dark-signal nonuniformity offset variation. |
+| kTC reset noise | `ktc_reset` | Reset-noise offsets. |
+| Amp glow | `amp_glow` | Exponential corner glow from amplifier bias. |
+| Blooming smear | `blooming_smear` | Vertical smear from saturated excess. |
+| Rolling shutter | `rolling_shutter` | Deterministic row-wise displacement. |
+| ADC nonlinearity | `adc_nonlinearity`, `dnl_inl` | Integral and differential nonlinearity artifacts. |
+| Hot-pixel clusters | `hot_pixel_clusters` | Clustered defective hot pixels. |
+| Vignetting | `vignetting` | Radial lens falloff. |
+| JPEG artifact | `jpeg` | JPEG-like block quantization artifact. |
+| Gradient banding | `gradient_banding` | Low-amplitude tonal banding. |
+| Overshoot | `overshoot` | Edge overshoot and ringing. |
+| Block dropout | `block_dropout` | Random macroblock dropout. |
+| Aliasing | `aliasing` | Downsampled and resampled aliasing artifact. |
+| Mosquito noise | `mosquito_noise` | Edge-localized high-frequency noise. |
+| Wavelet ringing | `wavelet_ringing` | Wavelet-compression-style ringing. |
+| Posterization | `posterization` | Low tonal-depth posterization. |
+| Dither | `dither` | Additive dither before optional quantization. |
 | Quantization | `quantization`, `quantize` | Finite-level digitization and low-bit-depth image effects. |
 | Fixed-pattern noise | `fixed_pattern`, `fpn` | Pixelwise offset and gain nonuniformity. |
 | Stripe noise | `stripe`, `banding`, `row_column` | Row- and column-correlated sensor artifacts. |
