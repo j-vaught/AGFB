@@ -27,6 +27,7 @@ class BuiltInFilterSpec:
 
 _FILTER_MODULES = (
     "agfb_filters.filters.central_difference",
+    "agfb_filters.filters.ando",
     "agfb_filters.filters.farid_simoncelli",
     "agfb_filters.filters.prewitt",
     "agfb_filters.filters.roberts",

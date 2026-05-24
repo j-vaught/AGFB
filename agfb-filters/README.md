@@ -53,7 +53,7 @@ gradient_x, gradient_y = run_filter(
 
 **Included Filters**
 
-The package includes common finite impulse response filters such as central difference, Roberts, Prewitt, Sobel, Scharr, Farid-Simoncelli, derivative-of-Gaussian, Savitzky-Golay, and Freeman-Adelson filters. It also includes polynomial and compact polynomial gradient filters, sparse central differences, Haar-style box gradients, Deriche recursive Gaussian derivatives, robust local-plane gradients, Perona-Malik diffusion gradients, Riesz transforms, and several orientation-bank constructions.
+The package includes common finite impulse response filters such as central difference, Roberts, Prewitt, Sobel, Scharr, Ando consistent gradient operators, Farid-Simoncelli, derivative-of-Gaussian, Savitzky-Golay, and Freeman-Adelson filters. It also includes polynomial and compact polynomial gradient filters, sparse central differences, Haar-style box gradients, Deriche recursive Gaussian derivatives, robust local-plane gradients, Perona-Malik diffusion gradients, Riesz transforms, and several orientation-bank constructions.
 
 The shipped filter catalog is available from Python.
 
