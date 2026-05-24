@@ -13,7 +13,8 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -46,19 +47,23 @@ def mach_band(
     `angle_rad` is the ramp normal direction in radians, measured from the
     image `+x` direction. `center_offset` shifts the midpoint of the ramp in
     the shared centered coordinate system. `amplitude` is the base ramp
-    contrast. `edge_sigma` controls Gaussian smoothing of the finite ramp.
-    `shoulder_amplitude` sets the signed shoulder strength as a fraction of
-    `amplitude`, and `shoulder_sigma` controls each shoulder width.
+    contrast before final normalization and the realized total peak-to-trough
+    contrast after it. `edge_sigma` controls Gaussian smoothing of the finite
+    ramp. `shoulder_amplitude` sets the signed shoulder strength as a fraction
+    of the base ramp contrast, and `shoulder_sigma` controls each shoulder
+    width.
 
     The projected coordinate is
     `z = x * cos(angle) + y * sin(angle) - center_offset`. The base intensity is
     the Gaussian-smoothed finite ramp over `-ramp_width / 2 <= z <=
     ramp_width / 2`. The Mach-band term subtracts a Gaussian shoulder at the
-    low edge and adds a matching shoulder at the high edge. The returned
-    `Frame` contains the intensity image and the closed-form gradients with
-    respect to image `x` and `y`. If `device` is omitted and a tensor parameter
-    is passed, the render stays on that tensor's device.
+    low edge and adds a matching shoulder at the high edge. The combined raw
+    profile is affinely normalized into `[0, 1]`. The returned `Frame` contains
+    the intensity image and the closed-form gradients with respect to image
+    `x` and `y`. If `device` is omitted and a tensor parameter is passed, the
+    render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("ramp_width", ramp_width)
     validate_positive("edge_sigma", edge_sigma)
     validate_positive("shoulder_sigma", shoulder_sigma)
@@ -132,4 +137,4 @@ def mach_band(
     normal_gradient = base_normal_gradient + shoulder_normal_gradient
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

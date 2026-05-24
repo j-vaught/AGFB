@@ -15,7 +15,8 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -36,6 +37,7 @@ def vessel_crossing(
     branch_b_normal_angle_rad: Numeric = _DEFAULT_CROSSING_BRANCH_B_NORMAL_ANGLE_RAD,
     branch_a_amplitude: Numeric = 1.0,
     branch_b_amplitude: Numeric = 1.0,
+    amplitude: Numeric = 1.0,
     branch_a_center_offset: Numeric = 0.0,
     branch_b_center_offset: Numeric = 0.0,
     device: torch.device | None = None,
@@ -53,15 +55,19 @@ def vessel_crossing(
     `branch_a_width_sigma` and `branch_b_width_sigma` set each ridge width.
     `branch_a_normal_angle_rad` and `branch_b_normal_angle_rad` are the ridge
     normal directions in radians, measured from image `+x`. `branch_a_amplitude`
-    and `branch_b_amplitude` scale the two ridge intensities.
+    and `branch_b_amplitude` set the relative ridge weights before final
+    normalization, and `amplitude` controls the realized peak-to-trough
+    contrast.
     `branch_a_center_offset` and `branch_b_center_offset` shift each ridge
     across its normal coordinate in the shared centered coordinate system.
 
-    The rendered intensity is the sum of two straight Gaussian ridge fields.
-    The returned `Frame` contains that intensity image and the closed-form
-    summed gradients with respect to image `x` and `y`. If `device` is omitted
-    and a tensor parameter is passed, the render stays on that tensor's device.
+    The raw intensity is the sum of two straight Gaussian ridge fields, then it
+    is affinely normalized into `[0, 1]`. The returned `Frame` contains that
+    intensity image and the closed-form summed gradients with respect to image
+    `x` and `y`. If `device` is omitted and a tensor parameter is passed, the
+    render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("branch_a_width_sigma", branch_a_width_sigma)
     validate_positive("branch_b_width_sigma", branch_b_width_sigma)
     device = infer_device(
@@ -72,6 +78,7 @@ def vessel_crossing(
         branch_b_normal_angle_rad,
         branch_a_amplitude,
         branch_b_amplitude,
+        amplitude,
         branch_a_center_offset,
         branch_b_center_offset,
     )
@@ -82,6 +89,7 @@ def vessel_crossing(
         branch_b_normal_angle_rad,
         branch_a_amplitude,
         branch_b_amplitude,
+        amplitude,
         branch_a_center_offset,
         branch_b_center_offset,
     )
@@ -93,6 +101,7 @@ def vessel_crossing(
     branch_b_angle_batch = as_batch(branch_b_normal_angle_rad, batch_size, device, dtype)
     branch_a_amplitude_batch = as_batch(branch_a_amplitude, batch_size, device, dtype)
     branch_b_amplitude_batch = as_batch(branch_b_amplitude, batch_size, device, dtype)
+    amplitude_batch = as_batch(amplitude, batch_size, device, dtype)
     branch_a_offset_batch = as_batch(branch_a_center_offset, batch_size, device, dtype)
     branch_b_offset_batch = as_batch(branch_b_center_offset, batch_size, device, dtype)
 
@@ -112,11 +121,10 @@ def vessel_crossing(
         branch_b_amplitude_batch,
         branch_b_offset_batch,
     )
-    return pack(
-        branch_a[0] + branch_b[0],
-        branch_a[1] + branch_b[1],
-        branch_a[2] + branch_b[2],
-    )
+    intensity = branch_a[0] + branch_b[0]
+    gradient_x = branch_a[1] + branch_b[1]
+    gradient_y = branch_a[2] + branch_b[2]
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)
 
 
 def vessel_bifurcation(
@@ -149,18 +157,20 @@ def vessel_bifurcation(
     Gaussian width of each branch. Each `*_tangent_angle_rad` parameter is a
     branch tangent direction in radians, measured from image `+x`. `center_x`
     and `center_y` place the bifurcation point in the shared centered
-    coordinate system. `amplitude` scales all three branches, and
-    `branch_gate_sigma` controls the smooth one-sided gate that limits each
-    branch to its side of the junction.
+    coordinate system. `amplitude` controls the realized peak-to-trough
+    contrast, and `branch_gate_sigma` controls the smooth one-sided gate that
+    limits each branch to its side of the junction.
 
     Each branch is a Gaussian ridge across its normal coordinate, multiplied by
     a smooth one-sided gate along its tangent coordinate. The trunk gate keeps
     the negative tangent side so the trunk points into the junction. The left
     and right gates keep the positive tangent side so the branches point away
     from it. Product-rule terms from both the ridge and gate are included in
-    the returned analytic gradients. If `device` is omitted and a tensor
-    parameter is passed, the render stays on that tensor's device.
+    the returned analytic gradients. The combined raw field is affinely
+    normalized into `[0, 1]`. If `device` is omitted and a tensor parameter is
+    passed, the render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("trunk_width_sigma", trunk_width_sigma)
     validate_positive("left_width_sigma", left_width_sigma)
     validate_positive("right_width_sigma", right_width_sigma)
@@ -236,7 +246,7 @@ def vessel_bifurcation(
     intensity = trunk[0] + left[0] + right[0]
     gradient_x = trunk[1] + left[1] + right[1]
     gradient_y = trunk[2] + left[2] + right[2]
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)
 
 
 def _straight_ridge(

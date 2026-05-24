@@ -13,7 +13,8 @@ from agfb_generators.base import (
     coord_grid,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
 )
 
 
@@ -43,15 +44,17 @@ def chirp(
     pixel along that coordinate. `angle_rad` is the coordinate-axis angle in
     radians measured from the image `+x` direction. `center_offset` shifts the
     coordinate origin, `phase_rad` shifts the sinusoid phase, and `amplitude`
-    controls the output range.
+    controls the realized peak-to-trough contrast.
 
     The phase is
     `2 pi * (base_frequency * u + 0.5 * frequency_slope * u^2) + phase_rad`,
-    where `u = x * cos(angle) + y * sin(angle) - center_offset`. The returned
-    `Frame` contains the intensity image and the closed-form gradients with
-    respect to image `x` and `y`. If `device` is omitted and a tensor parameter
-    is passed, the render stays on that tensor's device.
+    where `u = x * cos(angle) + y * sin(angle) - center_offset`. The raw chirp
+    is affinely normalized into `[0, 1]`. The returned `Frame` contains the
+    intensity image and the closed-form gradients with respect to image `x`
+    and `y`. If `device` is omitted and a tensor parameter is passed, the
+    render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     device = infer_device(
         device,
         base_frequency,
@@ -98,4 +101,4 @@ def chirp(
     )
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

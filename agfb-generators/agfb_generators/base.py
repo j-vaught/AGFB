@@ -4,6 +4,7 @@ Conventions:
     Intensity tensor shape: (B, H, W), float32.
     Gradient tensor shape:  (B, 2, H, W), float32, channel order (g_x, g_y).
     Coordinates:            origin at the image center, +x right, +y down.
+    Amplitude:              realized peak-to-trough contrast inside [0, 1].
 
 Every public generator function accepts scalar Python numbers OR 1-D tensors of
 length B for its parameters. Scalars broadcast across the batch; tensors are
@@ -128,6 +129,26 @@ def validate_positive(name: str, value: Numeric) -> None:
         raise ValueError(f"{name} must be a finite value greater than zero")
 
 
+def validate_amplitude(name: str, value: Numeric) -> None:
+    """Reject invalid CPU contrast parameters without synchronizing accelerator batches."""
+    if isinstance(value, torch.Tensor):
+        if value.numel() == 0:
+            raise ValueError(f"{name} must contain only finite values in [0, 1]")
+        if value.device.type != "cpu":
+            return
+        finite = (
+            torch.isfinite(value) if value.is_floating_point() else torch.ones_like(value).bool()
+        )
+        valid = finite & (value >= 0) & (value <= 1)
+        if not bool(torch.all(valid).item()):
+            raise ValueError(f"{name} must contain only finite values in [0, 1]")
+        return
+
+    value_float = float(value)
+    if not math.isfinite(value_float) or value_float < 0.0 or value_float > 1.0:
+        raise ValueError(f"{name} must be a finite value in [0, 1]")
+
+
 @lru_cache(maxsize=32)
 def _coord_grid_cached(
     height: int,
@@ -222,3 +243,23 @@ def pack(I: torch.Tensor, gx: torch.Tensor, gy: torch.Tensor) -> Frame:
     """
     g = torch.stack((gx, gy), dim=1)
     return Frame(I=I.contiguous(), g=g.contiguous())
+
+
+def normalize_contrast(
+    I: torch.Tensor,
+    gx: torch.Tensor,
+    gy: torch.Tensor,
+    amplitude: torch.Tensor,
+) -> Frame:
+    """Map one raw field to a centered intensity band with exact realized contrast."""
+    batch_min = I.amin(dim=(1, 2), keepdim=True)
+    batch_max = I.amax(dim=(1, 2), keepdim=True)
+    span = batch_max - batch_min
+    positive_amplitude = amplitude > 0.0
+    zero_span = span <= 0.0
+    if bool(torch.any(positive_amplitude & zero_span).detach().cpu().item()):
+        raise ValueError("raw intensity span must be positive when amplitude is greater than zero")
+
+    scale = torch.where(zero_span, torch.zeros_like(span), amplitude / span)
+    normalized = 0.5 - 0.5 * amplitude + (I - batch_min) * scale
+    return pack(normalized, gx * scale, gy * scale)

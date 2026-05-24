@@ -9,7 +9,15 @@ from __future__ import annotations
 
 import torch
 
-from agfb_generators.base import Frame, coord_grid, infer_device, pack
+from agfb_generators.base import (
+    Frame,
+    Numeric,
+    as_batch,
+    coord_grid,
+    infer_device,
+    normalize_contrast,
+    validate_amplitude,
+)
 
 
 def polynomial(
@@ -18,6 +26,7 @@ def polynomial(
     *,
     coefficients: torch.Tensor | None = None,
     coordinate_scale: float | None = None,
+    amplitude: Numeric = 1.0,
     device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Frame:
@@ -37,22 +46,37 @@ def polynomial(
     before evaluating the polynomial, which keeps coefficients readable on
     pixel-sized grids. If `coordinate_scale` is omitted, the shorter image side
     is scaled to span roughly `[-3, 3]`, matching the fitted default surface.
+    `amplitude` controls the realized peak-to-trough contrast after affine
+    normalization.
 
     The returned `Frame` contains the polynomial intensity image and the
     closed-form gradients with respect to image `x` and `y`. If `device` is
     omitted and a coefficient tensor is passed, the render stays on that
     tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     coordinate_scale_value = _coordinate_scale(height, width, coordinate_scale)
     if coordinate_scale_value == 0.0:
         raise ValueError("coordinate_scale must be nonzero")
     resolved_device = (
-        infer_device(device, coefficients)
+        infer_device(device, coefficients, amplitude)
         if coefficients is not None
-        else torch.device(device or "cpu")
+        else infer_device(device, amplitude)
     )
     coefficient_batch = _coefficient_batch(coefficients, resolved_device, dtype)
     batch_size, x_term_count, y_term_count = coefficient_batch.shape
+    if isinstance(amplitude, torch.Tensor) and amplitude.ndim == 1:
+        amplitude_batch_size = int(amplitude.shape[0])
+        coefficients_are_single = coefficients is None or coefficients.ndim == 2
+        if batch_size == 1 and coefficients_are_single:
+            coefficient_batch = coefficient_batch.expand(amplitude_batch_size, -1, -1)
+            batch_size = amplitude_batch_size
+        elif amplitude_batch_size != batch_size:
+            raise ValueError(
+                "amplitude tensor must match polynomial batch size, "
+                f"got ({amplitude_batch_size},) for batch size {batch_size}"
+            )
+    amplitude_batch = as_batch(amplitude, batch_size, resolved_device, dtype)
 
     xx, yy = coord_grid(height, width, resolved_device, dtype)
     x_coord = xx / coordinate_scale_value
@@ -82,7 +106,7 @@ def polynomial(
             x_powers,
             y_powers[:-1],
         )
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)
 
 
 def _coefficient_batch(

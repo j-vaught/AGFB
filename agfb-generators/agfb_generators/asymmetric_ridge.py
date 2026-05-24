@@ -11,7 +11,8 @@ from agfb_generators.base import (
     coord_grid,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -49,6 +50,7 @@ def asymmetric_ridge(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("negative_sigma", negative_sigma)
     validate_positive("positive_sigma", positive_sigma)
     device = infer_device(
@@ -87,4 +89,4 @@ def asymmetric_ridge(
     normal_gradient = -intensity * normal_scaled
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

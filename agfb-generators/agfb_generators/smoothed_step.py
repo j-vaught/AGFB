@@ -13,7 +13,8 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -53,6 +54,7 @@ def smoothed_step(
     normal. If `device` is omitted and a tensor parameter is passed, the render
     stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("edge_sigma", edge_sigma)
     device = infer_device(device, angle_rad, center_offset, amplitude, edge_sigma)
     batch_size = infer_batch_size(angle_rad, center_offset, amplitude, edge_sigma)
@@ -72,4 +74,4 @@ def smoothed_step(
     normal_gradient = (amplitude_batch / edge_sigma_batch) * gauss_phi(normalized_distance)
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

@@ -11,7 +11,8 @@ from agfb_generators.base import (
     coord_grid,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -51,6 +52,7 @@ def roof_profile(
     support edges. If `device` is omitted and a tensor parameter is passed, the
     render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("roof_width", roof_width)
     device = infer_device(device, roof_width, angle_rad, center_offset, amplitude)
     batch_size = infer_batch_size(roof_width, angle_rad, center_offset, amplitude)
@@ -76,4 +78,4 @@ def roof_profile(
     normal_gradient = (amplitude_batch / half_width) * (left_slope_mask - right_slope_mask)
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

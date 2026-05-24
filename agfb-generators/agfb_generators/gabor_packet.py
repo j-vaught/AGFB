@@ -13,7 +13,8 @@ from agfb_generators.base import (
     coord_grid,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -47,13 +48,15 @@ def gabor_packet(
     controls the Gaussian window along the carrier coordinate, and
     `envelope_width_sigma` controls the perpendicular window width. `center_x`
     and `center_y` move the packet center in the shared centered coordinate
-    system. `amplitude` scales the output, and `phase_rad` shifts the carrier
-    sinusoid.
+    system. `amplitude` controls the realized peak-to-trough contrast, and
+    `phase_rad` shifts the carrier sinusoid.
 
-    The returned `Frame` contains the intensity image and the closed-form
-    gradients with respect to image `x` and `y`. If `device` is omitted and a
-    tensor parameter is passed, the render stays on that tensor's device.
+    The raw packet is affinely normalized into `[0, 1]`. The returned `Frame`
+    contains the intensity image and the closed-form gradients with respect to
+    image `x` and `y`. If `device` is omitted and a tensor parameter is passed,
+    the render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("envelope_length_sigma", envelope_length_sigma)
     validate_positive("envelope_width_sigma", envelope_width_sigma)
     device = infer_device(
@@ -122,4 +125,4 @@ def gabor_packet(
     )
     gradient_x = carrier_derivative * cos_angle - transverse_derivative * sin_angle
     gradient_y = carrier_derivative * sin_angle + transverse_derivative * cos_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

@@ -13,7 +13,8 @@ from agfb_generators.base import (
     coord_grid,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
 )
 
 
@@ -40,16 +41,17 @@ def sinusoid(
     The default call renders a horizontal 0.05 cycles/pixel sinusoid centered
     on the shared coordinate grid. `spatial_frequency` is measured in
     cycles/pixel. `angle_rad` is the grating normal direction in radians,
-    measured from the image `+x` direction. `amplitude` controls the signed
-    peak intensity, and `phase_rad` shifts the sinusoid phase in radians.
+    measured from the image `+x` direction. `amplitude` controls the realized
+    peak-to-trough contrast, and `phase_rad` shifts the sinusoid phase in radians.
 
     The projected coordinate is `s = x * cos(angle) + y * sin(angle)`. The
-    rendered intensity is
-    `amplitude * sin(2 * pi * spatial_frequency * s + phase_rad)`. The
-    returned `Frame` contains that signed intensity image and the closed-form
-    gradients with respect to image `x` and `y`. If `device` is omitted and a
-    tensor parameter is passed, the render stays on that tensor's device.
+    raw grating is `sin(2 * pi * spatial_frequency * s + phase_rad)`, then it
+    is affinely normalized into `[0, 1]`. The returned `Frame` contains that
+    intensity image and the closed-form gradients with respect to image `x`
+    and `y`. If `device` is omitted and a tensor parameter is passed, the
+    render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     device = infer_device(device, spatial_frequency, angle_rad, amplitude, phase_rad)
     batch_size = infer_batch_size(spatial_frequency, angle_rad, amplitude, phase_rad)
     xx, yy = coord_grid(height, width, device, dtype)
@@ -69,4 +71,4 @@ def sinusoid(
     normal_gradient = angular_frequency * amplitude_batch * torch.cos(wave_phase)
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

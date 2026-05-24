@@ -11,7 +11,8 @@ from agfb_generators.base import (
     coord_grid,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -54,6 +55,7 @@ def anisotropic_blob(
     created on the resolved device, so CUDA inputs run the same vectorized path
     on the GPU.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("length_sigma", length_sigma)
     validate_positive("width_sigma", width_sigma)
     device = infer_device(
@@ -97,4 +99,4 @@ def anisotropic_blob(
     intensity = amplitude_batch * torch.exp(exponent)
     gradient_x = intensity * (-u_scaled * cos_angle + v_scaled * sin_angle)
     gradient_y = intensity * (-u_scaled * sin_angle - v_scaled * cos_angle)
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

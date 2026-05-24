@@ -42,6 +42,12 @@ gmag = torch.sqrt(gx**2 + gy**2)
 
 The quickstart uses scalar parameters, so `B` is `1`. The returned shapes are `torch.Size([1, 128, 128])` for `frame.I` and `torch.Size([1, 2, 128, 128])` for `frame.g`.
 
+**Intensity Contract**
+
+Every public generator returns intensities inside `[0, 1]`. The `amplitude` parameter is the realized peak-to-trough contrast of each returned batch item. An amplitude of `1.0` spans `[0, 1]`, an amplitude of `0.5` spans `[0.25, 0.75]`, and an amplitude of `0.0` returns a constant `0.5` image with zero gradients.
+
+Generators first evaluate their analytic raw field and gradients, then apply one affine intensity transform per batch item. The same scale factor is applied to $g_x$ and $g_y$, with no gradient offset, so the returned analytic gradients match the rendered field.
+
 **Scalar And Batched Parameters**
 
 Every public generator accepts Python scalars or one-dimensional tensors for numeric parameters. Scalars are broadcast across the batch. One-dimensional tensor parameters set the batch size and must agree on length.

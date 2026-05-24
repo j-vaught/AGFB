@@ -11,7 +11,8 @@ from agfb_generators.base import (
     coord_grid,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -51,6 +52,7 @@ def curved_ridge(
     rule. If `device` is omitted and a tensor parameter is passed, the render
     stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("width_sigma", width_sigma)
     device = infer_device(
         device,
@@ -92,4 +94,4 @@ def curved_ridge(
     normal_gradient = -intensity * ridge_coord / width_sigma_sq
     gradient_x = normal_gradient * ridge_coord_dx
     gradient_y = normal_gradient * ridge_coord_dy
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

@@ -15,7 +15,8 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -42,6 +43,7 @@ def junction_frame(
     distance to the union of those stroked rays, which avoids the divots and
     ad hoc endpoint caps produced by multiplying separate half-bar masks.
     """
+    validate_amplitude("contrast", contrast)
     validate_positive("arm_width_px", arm_width_px)
     validate_positive("sigma_e", sigma_e)
     device = infer_device(device, *angles_rad, arm_width_px, x0, y0, contrast, sigma_e)
@@ -97,7 +99,7 @@ def junction_frame(
     edge_derivative = -(contrast_batch / edge_sigma_batch) * gauss_phi(normalized_distance)
     gradient_x = edge_derivative * signed_distance_gx
     gradient_y = edge_derivative * signed_distance_gy
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, contrast_batch)
 
 
 def _smooth_min_signed_distance(

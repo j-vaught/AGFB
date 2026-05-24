@@ -13,7 +13,8 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -51,6 +52,7 @@ def curved_arc(
     respect to image `x` and `y`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("radius", radius)
     validate_positive("edge_sigma", edge_sigma)
     device = infer_device(device, radius, center_x, center_y, amplitude, edge_sigma)
@@ -74,4 +76,4 @@ def curved_arc(
     radial_derivative = -(amplitude_batch / edge_sigma_batch) * gauss_phi(normalized_distance)
     gradient_x = radial_derivative * (x_from_center / radial_distance)
     gradient_y = radial_derivative * (y_from_center / radial_distance)
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)

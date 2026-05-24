@@ -13,7 +13,8 @@ from agfb_generators.base import (
     gauss_phi,
     infer_batch_size,
     infer_device,
-    pack,
+    normalize_contrast,
+    validate_amplitude,
     validate_positive,
 )
 
@@ -53,6 +54,7 @@ def smoothed_bar(
     gradients into one `Frame`. If `device` is omitted and a tensor parameter
     is passed, the render stays on that tensor's device.
     """
+    validate_amplitude("amplitude", amplitude)
     validate_positive("bar_width", bar_width)
     validate_positive("edge_sigma", edge_sigma)
     device = infer_device(device, bar_width, angle_rad, center_offset, amplitude, edge_sigma)
@@ -78,4 +80,4 @@ def smoothed_bar(
     )
     gradient_x = normal_gradient * cos_angle
     gradient_y = normal_gradient * sin_angle
-    return pack(intensity, gradient_x, gradient_y)
+    return normalize_contrast(intensity, gradient_x, gradient_y, amplitude_batch)
