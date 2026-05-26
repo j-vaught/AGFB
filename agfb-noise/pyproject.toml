@@ -1,0 +1,49 @@
+[project]
+name = "agfb-noise"
+version = "0.1.0"
+description = "Fast batched noise models for Analytic Gradient Filter Benchmark images"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "J.C. Vaught" }]
+requires-python = ">=3.11"
+
+dependencies = [
+    "torch>=2.4,<2.7",
+    "numpy>=2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/j-vaught/agfb-noise"
+Repository = "https://github.com/j-vaught/agfb-noise"
+Issues = "https://github.com/j-vaught/agfb-noise/issues"
+
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29",
+    "ruff>=0.7",
+    "ty>=0.0.1a8",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.setuptools.packages.find]
+include = ["agfb_noise*"]
