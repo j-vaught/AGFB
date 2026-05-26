@@ -16,6 +16,3 @@ dist/
 # Notebooks and OS cruft
 .ipynb_checkpoints/
 .DS_Store
-
-# Benchmark result data (large; regenerate with agfb-bench)
-*.parquet
