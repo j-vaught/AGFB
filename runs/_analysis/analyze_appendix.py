@@ -115,6 +115,20 @@ def family(cid: str) -> str:
     return cid
 
 
+def is_even_degree_redundant(cid: str) -> bool:
+    """True for an even-degree local-polynomial gradient configuration (CPGF or
+    Savitzky-Golay). On the symmetric support the even polynomial terms are
+    orthogonal to the linear gradient term, so an even degree gives the same
+    gradient estimate as the preceding odd degree (e.g. degree 2 == degree 1).
+    These parity-redundant rows are dropped from the per-configuration tables."""
+    m = _RD.search(cid)
+    return (
+        m is not None
+        and (cid.startswith("cpgf") or cid.startswith("savitzky_golay"))
+        and int(m.group(2)) % 2 == 0
+    )
+
+
 def natkey(s: str) -> list[str]:
     """Natural-ordering key. Digit runs are zero-padded so radius 3 precedes
     radius 11 and so the key stays all-strings (safe to compare across the
@@ -224,6 +238,7 @@ recs = [
         ],
     )
     for r in cat.iter_rows(named=True)
+    if not is_even_degree_redundant(r["filter_config_id"])
 ]
 emit(
     "appendix_clean_catalog.csv",
@@ -415,6 +430,7 @@ def real_table(dataset):
             ],
         )
         for r in t.iter_rows(named=True)
+        if not is_even_degree_redundant(r["filter_config_id"])
     ]
 
 
@@ -458,6 +474,7 @@ recs = [
         [pretty(r["filter_config_id"]), r["native"], r["ss8"], r["delta"]],
     )
     for r in m.iter_rows(named=True)
+    if not is_even_degree_redundant(r["filter_config_id"])
 ]
 emit(
     "appendix_real_ss8.csv",
