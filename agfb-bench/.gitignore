@@ -1,0 +1,15 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python build / cache artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+.ty_cache/
+
+# Benchmark run outputs (regenerated; result Parquet/JSON are not tracked here)
+runs/

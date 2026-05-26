@@ -1,0 +1,21 @@
+# Python environments
+.venv/
+venv/
+env/
+
+# Caches and build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ty/
+build/
+dist/
+*.egg-info/
+
+# Notebooks and OS cruft
+.ipynb_checkpoints/
+.DS_Store
+
+# Benchmark result data (large; regenerate with agfb-bench)
+*.parquet

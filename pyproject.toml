@@ -1,0 +1,52 @@
+[project]
+name = "agfb-integration"
+version = "0.1.0"
+description = "AGFB workspace: component packages, the benchmark runner, and integration smoke tests."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "agfb-filters",
+    "agfb-generators",
+    "agfb-metrics",
+    "agfb-noise",
+    "agfb-bench[realimg]",
+    "ipykernel>=6.29",
+    "nbclient>=0.10",
+    "nbformat>=5.10",
+    "pillow>=12.2.0",
+]
+
+[tool.uv.sources]
+agfb-filters = { path = "agfb-filters", editable = true }
+agfb-generators = { path = "agfb-generators", editable = true }
+agfb-metrics = { path = "agfb-metrics", editable = true }
+agfb-noise = { path = "agfb-noise", editable = true }
+agfb-bench = { path = "agfb-bench", editable = true }
+torch = [
+    { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.7",
+    "ty>=0.0.1a8",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ty.environment]
+extra-paths = [
+    "agfb-filters",
+    "agfb-generators",
+    "agfb-metrics",
+    "agfb-noise",
+    "agfb-bench",
+]
