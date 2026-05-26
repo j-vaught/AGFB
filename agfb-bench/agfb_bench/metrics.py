@@ -1,9 +1,9 @@
-"""Metric evaluation — Chapter 4 of BENCHMARK_DESIGN.md.
+"""Metric evaluation.
 
 The ten metrics split into a cheap **pixel set** (7, collected on every run) and
-an expensive **profile set** (3, collected only on the clean pass; spec 4.5).
+an expensive **profile set** (3, collected only on the clean pass).
 Region masks come from ``masks(gx_t, gy_t, dilate_px, rel_eps)`` and are computed
-once per clean cell, then reused across all noise levels and filters (spec 4.1).
+once per clean cell, then reused across all noise levels and filters.
 """
 
 from __future__ import annotations

@@ -1,10 +1,10 @@
-"""Generator catalog — Chapter 1 of BENCHMARK_DESIGN.md.
+"""Generator catalog.
 
 A :class:`Cell` is one generator with one fully specified parameter dictionary.
 The clean field is deterministic, so a cell's identity is ``(generator, params)``
-and a seed only matters once noise is added (Chapter 2).
+and a seed only matters once noise is added.
 
-Two rules are fixed for every entry (spec 1.2):
+Two rules are fixed for every entry:
 
 1. Angle is the outermost loop, so consecutive cells of a generator differ only
    in orientation and the full angle sweep is contiguous.

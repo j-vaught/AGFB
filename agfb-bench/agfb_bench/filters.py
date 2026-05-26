@@ -1,4 +1,4 @@
-"""Filter grid — Chapter 3 of BENCHMARK_DESIGN.md.
+"""Filter grid.
 
 A :class:`FilterConfig` is one ``agfb-filters`` family with one parameter
 dictionary on one :class:`ExecutionPath`. CPGF and square Savitzky-Golay are
@@ -7,7 +7,7 @@ baselines. Underdetermined polynomial cells (a 2-D degree ``d`` needs
 ``(d+1)(d+2)/2`` samples <= support) are skipped at construction: the library
 raises ``ValueError`` for them, which :func:`build_filter_configs` catches.
 
-Orientation-bank filters (the ``ORIENTATION_BANK`` path) are excluded (spec 3.3).
+Orientation-bank filters (the ``ORIENTATION_BANK`` path) are excluded.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Reduction step — Chapter 4.4 of BENCHMARK_DESIGN.md.
+"""Reduction step.
 
 Concatenate the per-seed Parquet shards and aggregate across the cells within a
 generator family and across seeds, giving per-(family, filter, metric, noise)

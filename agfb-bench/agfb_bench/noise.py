@@ -1,8 +1,8 @@
-"""Noise system — Chapter 2 of BENCHMARK_DESIGN.md.
+"""Noise system.
 
-The robustness axis is additive white Gaussian over a dB grid (2.1); the
+The robustness axis is additive white Gaussian over a dB grid; the
 remaining 21 ``agfb-noise`` models are characterized on the canonical subset
-with native-unit mild->severe ladders (2.2). ``add_gaussian`` realizes a target
+with native-unit mild->severe ladders. ``add_gaussian`` realizes a target
 SNR via ``sigma_n = contrast / 10**(snr_db/20)``, so a given dB is the same
 effective SNR regardless of field contrast and the injected ``sigma_n`` (which
 the ``noise_gain`` metric needs) is known exactly.
@@ -34,7 +34,7 @@ class NoiseCondition:
     sigma_mode: str = "exact"
 
 
-# -- 2.1 Additive white Gaussian — the robustness axis ------------------------
+# -- 2.1 Additive white Gaussian - the robustness axis ------------------------
 def awgn_conditions() -> list[NoiseCondition]:
     """13-level dB grid; level 0 is the clean field (no injection)."""
     conditions: list[NoiseCondition] = []
@@ -62,7 +62,7 @@ def noisy_awgn_conditions() -> list[NoiseCondition]:
     return [c for c in awgn_conditions() if c.kind == "awgn"]
 
 
-# -- 2.2 Noise-type breadth — native-unit ladders -----------------------------
+# -- 2.2 Noise-type breadth - native-unit ladders -----------------------------
 # (model, fixed kwargs, ladder-parameter name(s), ladder values, deterministic,
 #  sigma_mode). Tuples of names map element-wise onto tuples of values.
 _NATIVE_LADDERS: tuple[tuple, ...] = (

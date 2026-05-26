@@ -1,11 +1,11 @@
-"""Study orchestration — Chapter 5 of BENCHMARK_DESIGN.md.
+"""Study orchestration.
 
 Each study renders clean fields, injects noise, runs the filter grid, and scores
 the result, writing one Parquet row per (cell x noise x filter x metric) plus a
-JSON manifest. The seed axis is the shard axis (spec 5.4): a shard is one
+JSON manifest. The seed axis is the shard axis: a shard is one
 ``(study, seed)`` pair, written as ``<study>_seed<NN>.parquet``.
 
-The metric-set schedule (spec 4.5) is applied here: the pixel set runs on every
+The metric-set schedule is applied here: the pixel set runs on every
 condition; the profile set is added only on the clean pass. The clean-accuracy
 study is clean, so it collects all ten metrics; the awgn-robustness and
 noise-breadth studies are noisy, so they collect seven.
@@ -257,7 +257,7 @@ def run_study(
         )
         try:
             rows = list(iter_rows(spec, seed, image_size, device, on_cell=reporter.update))
-        except Exception as error:  # noqa: BLE001 — record then re-raise so the shard fails loudly
+        except Exception as error:  # noqa: BLE001 - record then re-raise so the shard fails loudly
             # An OOM crash dumps a multi-paragraph CUDA report; collapse it to a
             # one-line status so the dashboard stays readable. Other failures keep
             # their concrete type and message.
@@ -361,7 +361,7 @@ def run_timing(
                 }
             )
             reporter.update(cells_done=len(rows), rows=len(rows))
-    except Exception as error:  # noqa: BLE001 — record then re-raise so the shard fails loudly
+    except Exception as error:  # noqa: BLE001 - record then re-raise so the shard fails loudly
         if isinstance(error, torch.cuda.OutOfMemoryError):
             message = "Stopped. OOM error"
         else:
@@ -465,7 +465,7 @@ def run_backend_sweep(
                         _free_cuda(device)
                     except (ValueError, NotImplementedError):
                         status = "unsupported"
-                    except Exception as error:  # noqa: BLE001 — log the path, keep sweeping
+                    except Exception as error:  # noqa: BLE001 - log the path, keep sweeping
                         status = f"error:{type(error).__name__}"
                         _free_cuda(device)
                     rows.append(
@@ -484,7 +484,7 @@ def run_backend_sweep(
                 reporter.update(cells_done=units_done, rows=len(rows))
             del frame, image
             _free_cuda(device)
-    except Exception as error:  # noqa: BLE001 — record then re-raise so the shard fails loudly
+    except Exception as error:  # noqa: BLE001 - record then re-raise so the shard fails loudly
         if isinstance(error, torch.cuda.OutOfMemoryError):
             message = "Stopped. OOM error"
         else:

@@ -1,7 +1,7 @@
 [project]
 name = "agfb-bench"
 version = "0.1.0"
-description = "AGFB synthetic benchmark runner — implements BENCHMARK_DESIGN.md (locked spec)."
+description = "AGFB synthetic benchmark runner - implements BENCHMARK_DESIGN.md (locked spec)."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "J.C. Vaught", email = "jvaught@sc.edu" }]

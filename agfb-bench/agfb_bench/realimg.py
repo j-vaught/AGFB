@@ -1,4 +1,4 @@
-"""Study R - real-image edge-detection benchmark (Chapter 6 of BENCHMARK_DESIGN.md).
+"""Study R - real-image edge-detection benchmark.
 
 Studies A-E score gradient *fields* against an analytic ground truth: the scene
 is synthesised, so the true gradient vector is known at every pixel and the
@@ -130,7 +130,7 @@ def _binary_edge(mask: np.ndarray) -> np.ndarray:
 def _instance_edge(labels: np.ndarray) -> np.ndarray:
     """Thick boundaries of a label image: pixels where the label varies locally.
 
-    Matches ``skimage.segmentation.find_boundaries(labels, mode="thick")`` — a
+    Matches ``skimage.segmentation.find_boundaries(labels, mode="thick")`` - a
     pixel is a boundary if any 4-neighbour carries a different label (including
     the background label 0), so adjacent instances are separated by their shared
     wall. Implemented as a label disagreement between a grey dilation and erosion

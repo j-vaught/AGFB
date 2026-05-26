@@ -37,7 +37,7 @@ def show(title, df, sort_col, descending=False, k=12):
 
 # ===== A: clean headline =====
 A = load("synthetic/clean_accuracy")
-print("=" * 70, "\nSTUDY A — CLEAN (SNR=inf), 110 filters, 4096^2, all classes")
+print("=" * 70, "\nSTUDY A - CLEAN (SNR=inf), 110 filters, 4096^2, all classes")
 print("cells per filter:", A.filter(pl.col("metric") == "nrmse").height // 110)
 nr = agg_filter(A, "nrmse")
 am = agg_filter(A, "angular_mae")
@@ -70,7 +70,7 @@ for fid in [
 
 # ===== C: mixed-catalog noise robustness =====
 C = load("synthetic/noise_breadth")
-print("\n" + "=" * 70, "\nSTUDY C — categorical noise, 29 filters, 8 seeds")
+print("\n" + "=" * 70, "\nSTUDY C - categorical noise, 29 filters, 8 seeds")
 print("noise models:", C["noise_model"].unique().to_list())
 print("conditions:", C["noise_condition_id"].n_unique())
 cn = agg_filter(C, "nrmse").join(agg_filter(C, "angular_mae"), on=["filter_config_id", "filter_family"])
@@ -82,7 +82,7 @@ print("best CPGF rank under noise:", cp2.select("rank", "filter_config_id", "nrm
 
 # ===== CG: CPGF radius/degree grid under noise =====
 CG = load("synthetic/cpgf_grid")
-print("\n" + "=" * 70, "\nSTUDY CG — CPGF grid under noise, 51 filters, 8 seeds")
+print("\n" + "=" * 70, "\nSTUDY CG - CPGF grid under noise, 51 filters, 8 seeds")
 print("families:", CG["filter_family"].unique().to_list())
 print("noise models:", CG["noise_model"].unique().to_list())
 cg = agg_filter(CG, "nrmse").join(
@@ -106,7 +106,7 @@ print(cg2.filter(pl.col("d") == 1).sort("r").select("r", "noise_gain", "nrmse").
 
 # ===== D: wall-clock =====
 D = load("timing/walltime_scaling")
-print("\n" + "=" * 70, "\nSTUDY D — timing 4096^2 (ms/call)")
+print("\n" + "=" * 70, "\nSTUDY D - timing 4096^2 (ms/call)")
 D = D.with_columns((pl.col("ms_per_call")).alias("ms"))
 for fid in [
     "central_difference",

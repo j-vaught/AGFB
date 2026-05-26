@@ -1,4 +1,4 @@
-"""Locked constants from BENCHMARK_DESIGN.md (the single source of truth)."""
+"""Locked constants for the benchmark (the single source of truth)."""
 
 from __future__ import annotations
 
