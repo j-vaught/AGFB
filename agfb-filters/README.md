@@ -115,4 +115,4 @@ uv build
 
 **License**
 
-This project is distributed under the MIT License. See `LICENSE` for the full text.
+This project is distributed under the MIT License. See the `LICENSE` file at the repository root for the full text.
