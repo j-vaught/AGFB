@@ -4,9 +4,9 @@ This reproduces the Sec. 5 anisotropy experiment analytically from the filter
 kernels and emits two quantities per (support, radius):
 
     eta_minus_1   magnitude anisotropy  max_theta|G| / min_theta|G| - 1
-    delta_star    worst-case orientation error in degrees over Theta_36
+    delta_star    worst-case orientation error in degrees over Theta_120
 
-The smoothed-step stimulus and the Theta_36 = {0, 10, ..., 350} degree
+The smoothed-step stimulus and the Theta_120 = {0, 3, ..., 357} degree
 orientation set match the definitions in the paper's theory section. The eta
 column reproduces the stored figure CSV (fig_sec05_anisotropy_values.csv) to
 five decimals, which validates the delta_star column emitted alongside it.
@@ -34,7 +34,7 @@ OUT_CSV = (
 DEGREE = 3
 EDGE_WIDTH = 1.0  # one-pixel smoothed step, matching Sec. 5
 RADII = list(range(3, 64))
-THETA_36 = [math.radians(10.0 * k) for k in range(36)]
+THETA_120 = [2.0 * math.pi * k / 120 for k in range(120)]
 
 
 def anisotropy(radius: int, support: str) -> tuple[float, float]:
@@ -47,7 +47,7 @@ def anisotropy(radius: int, support: str) -> tuple[float, float]:
 
     magnitudes: list[float] = []
     angular_errors: list[float] = []
-    for theta in THETA_36:
+    for theta in THETA_120:
         cos_t, sin_t = math.cos(theta), math.sin(theta)
         field = 0.5 * (1.0 + torch.tanh((cols * cos_t + rows * sin_t) / EDGE_WIDTH))
         gx = float(torch.sum(kx * field))
