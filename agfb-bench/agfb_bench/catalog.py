@@ -85,8 +85,20 @@ def _polynomial_coefficients() -> list[torch.Tensor | None]:
     return surfaces
 
 
+def _assert_unique_cell_ids(cells: list[Cell]) -> None:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for cell in cells:
+        if cell.cell_id in seen:
+            duplicates.append(cell.cell_id)
+        seen.add(cell.cell_id)
+    if duplicates:
+        sample = ", ".join(duplicates[:5])
+        raise AssertionError(f"duplicate catalog cell_id values: {sample}")
+
+
 def build_catalog() -> list[Cell]:
-    """Return the full generator catalog (569 cells per seed)."""
+    """Return the full generator catalog (559 unique cells per seed)."""
     cells: list[Cell] = []
 
     def add(generator, structure_class, angle_deg, truth_kind="analytic", **params):
@@ -114,7 +126,7 @@ def build_catalog() -> list[Cell]:
                     edge_sigma=edge_sigma,
                 )
     for deg in ANGLE_5:
-        for amplitude in (0.25, 0.5, 0.75, 1.0):
+        for amplitude in (0.25, 0.75):
             add(
                 "smoothed_step",
                 "edge",
@@ -122,7 +134,7 @@ def build_catalog() -> list[Cell]:
                 angle_rad=_rad(deg),
                 amplitude=amplitude,
                 edge_sigma=0.5,
-            )  # hard_step alias
+            )  # hard-step endpoints not already in the smoothed-step grid
 
     # -- Ridges & blobs -------------------------------------------------------
     for deg in ANGLE_5:
@@ -304,6 +316,7 @@ def build_catalog() -> list[Cell]:
                 )
             )
 
+    _assert_unique_cell_ids(cells)
     return cells
 
 

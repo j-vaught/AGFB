@@ -1,22 +1,24 @@
 """AWGN SNR-ladder scaling of the optimal CPGF support.
 
 The awgn_robustness study sweeps a single noise model, additive white Gaussian,
-across twelve SNR levels in dB, each repeated over eight seeds, on the full 569-
-cell catalog at 4096^2. Holding the polynomial degree at one, this isolates how
+across twelve SNR levels in dB, each repeated over eight seeds, on the full 559
+unique-cell catalog at 4096^2. Holding the polynomial degree at one, this isolates how
 the NRMSE-optimal support radius scales with noise: the optimum walks from the
 smallest competitive radius at high SNR to the widest at low SNR, the empirical
 counterpart of the optimal-radius law shown analytically in Section 5.
 
-Reductions follow the AGFB protocol: per-image NRMSE is averaged over the 569
-cells within each seed, and the eight seed means feed a Student-t 95% confidence
-interval per (radius, SNR). Emits the CeTZ CSV (radius, snr_db, mean, lo, hi,
-is_optimal) for the NRMSE-vs-SNR crossover family.
+Reductions follow the AGFB protocol: per-image NRMSE is averaged over the 559
+unique cells within each seed, and the eight seed means feed a Student-t 95%
+confidence interval per (radius, SNR). Emits the CeTZ CSV (radius, snr_db, mean,
+lo, hi, is_optimal) for the NRMSE-vs-SNR crossover family.
 """
 
 import glob
 import re
+from typing import cast
 
 import polars as pl
+from synthetic_dedup import deduplicate_synthetic_results
 
 OUT_CSV = "../PGF_paper/figures/cetz_src/main/fig_sec06_awgn_snr.csv"
 OUT_FAM_CSV = "../PGF_paper/figures/cetz_src/main/fig_sec06_awgn_family.csv"
@@ -25,9 +27,12 @@ T_975_7 = 2.364624251  # Student-t, 0.975 quantile, 7 dof (8 seeds)
 # Coarse family fold for the cross-filter comparison: classical stencils are
 # grouped by operator rather than by stencil size.
 _FOLD = {
-    "sobel_3": "Sobel", "sobel_5": "Sobel", "sobel_7": "Sobel",
+    "sobel_3": "Sobel",
+    "sobel_5": "Sobel",
+    "sobel_7": "Sobel",
     "scharr_3": "Scharr",
-    "central_difference": "Central diff.", "sparse_central_difference": "Central diff.",
+    "central_difference": "Central diff.",
+    "sparse_central_difference": "Central diff.",
     "derivative_of_gaussian": "DoG",
     "deriche_recursive_gaussian_derivative": "Deriche",
     "freeman_adelson_g1": "Freeman-Adelson",
@@ -42,13 +47,11 @@ def rd(s):
 
 
 fs = sorted(glob.glob("runs/synthetic/awgn_robustness/*.parquet"))
-df = pl.concat([pl.read_parquet(f) for f in fs], how="diagonal")
+df = deduplicate_synthetic_results(pl.concat([pl.read_parquet(f) for f in fs], how="diagonal"))
 print(f"shards={len(fs)} seeds={sorted(df['seed'].unique().to_list())}")
 
 nr = df.filter(
-    (pl.col("metric") == "nrmse")
-    & (~pl.col("is_nan"))
-    & (pl.col("filter_family") == "cpgf")
+    (pl.col("metric") == "nrmse") & (~pl.col("is_nan")) & (pl.col("filter_family") == "cpgf")
 )
 
 # per-seed cell-mean, then mean and 95% CI across the eight seeds
@@ -88,13 +91,17 @@ allf = df.filter((pl.col("metric") == "nrmse") & (~pl.col("is_nan")))
 per_seed_all = allf.group_by("filter_config_id", "filter_family", "snr_db", "seed").agg(
     pl.col("value").mean().alias("seed_mean")
 )
-fam_stats = per_seed_all.group_by("filter_config_id", "filter_family", "snr_db").agg(
-    pl.col("seed_mean").mean().alias("nrmse"),
-    pl.col("seed_mean").std(ddof=1).alias("sd"),
-    pl.len().alias("n_seeds"),
-).with_columns(
-    pl.col("filter_family").replace(_FOLD).alias("fam"),
-    (T_975_7 * pl.col("sd") / pl.col("n_seeds").sqrt()).alias("half"),
+fam_stats = (
+    per_seed_all.group_by("filter_config_id", "filter_family", "snr_db")
+    .agg(
+        pl.col("seed_mean").mean().alias("nrmse"),
+        pl.col("seed_mean").std(ddof=1).alias("sd"),
+        pl.len().alias("n_seeds"),
+    )
+    .with_columns(
+        pl.col("filter_family").replace(_FOLD).alias("fam"),
+        (T_975_7 * pl.col("sd") / pl.col("n_seeds").sqrt()).alias("half"),
+    )
 )
 # pick the best config per (fam, snr)
 fam_best = (
@@ -128,4 +135,10 @@ for s in snrs:
 
 print("\ntypical 95% CI half-width (fraction of mean), competitive radii r>=11:")
 comp = g.filter(pl.col("r") >= 11).with_columns((pl.col("half") / pl.col("nrmse")).alias("frac"))
-print(f"  median {comp['frac'].median() * 100:.2f}%  max {comp['frac'].max() * 100:.2f}%")
+median_frac = comp["frac"].median()
+max_frac = comp["frac"].max()
+median_pct = (
+    float(cast(int | float, median_frac)) * 100 if median_frac is not None else float("nan")
+)
+max_pct = float(cast(int | float, max_frac)) * 100 if max_frac is not None else float("nan")
+print(f"  median {median_pct:.2f}%  max {max_pct:.2f}%")

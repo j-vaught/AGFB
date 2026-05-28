@@ -35,8 +35,8 @@ Seeds are the shard axis: one shard is one `(study, seed)` pair.
 
 | Study | Generators | Noise | Filters | Seeds |
 |---|---|---|---|---|
-| clean accuracy | full catalog (569) | clean only | full (~109) | 1 |
-| AWGN robustness | full catalog (569) | 12 dB levels | full (~109) | 8 |
+| clean accuracy | full catalog (559) | clean only | full (110) | 1 |
+| AWGN robustness | full catalog (559) | 12 dB levels | full (110) | 8 |
 | noise breadth | canonical (24) | 79 native conditions | core (~26) | 8 |
 | CPGF grid | canonical (24) | 79 native conditions | CPGF radius x degree grid | 8 |
 | wall-clock / backend | 1 representative | clean + 10 dB | both execution paths | timing reps |

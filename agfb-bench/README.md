@@ -21,8 +21,8 @@ The four studies (spec 5.2):
 
 | Study | Generators | Noise | Filters | Seeds | Metrics |
 |---|---|---|---|---|---|
-| A - clean accuracy | full catalog (569) | clean only | `full` (~109) | 1 | all 10 |
-| B - AWGN robustness | full catalog (569) | 12 dB levels | `full` (~109) | 8 | pixel 7 |
+| A - clean accuracy | full catalog (559) | clean only | `full` (110) | 1 | all 10 |
+| B - AWGN robustness | full catalog (559) | 12 dB levels | `full` (110) | 8 | pixel 7 |
 | C - noise breadth | canonical (24) | 79 native conditions | `core` (~26) | 8 | pixel 7 |
 | D - wall-clock | 1 representative | clean + 10 dB | by profile, both paths | 50 reps | timing only |
 
@@ -33,7 +33,7 @@ the only row-study that collects all ten metrics.
 ## Modules
 
 - `config.py` - locked constants (sizes, seeds, dB grid, metric sets, `sigma_n`).
-- `catalog.py` - the 569-cell generator catalog + the 24-cell canonical subset.
+- `catalog.py` - the 559-cell generator catalog + the 24-cell canonical subset.
 - `noise.py` - the 13-level AWGN grid + the 79 native-unit ladders, and
   `apply_noise` (which also returns the `sigma_n` that `noise_gain` needs).
 - `filters.py` - the filter grid and the `headline` / `core` / `full` profiles;

@@ -46,7 +46,10 @@ ANGLE_SETS = {
 # against build_catalog(); Typst math markup is used for symbols (e.g. $sigma$).
 # Lengths are in pixels; frequencies in cycles per pixel.
 PARAMS = {
-    "smoothed_step": "amplitude 0.1, 0.25, 0.5, 0.75, 1.0; edge $sigma$ 0.5, 1, 2, 4",
+    "smoothed_step": (
+        "amplitude 0.1, 0.5, 1.0 at edge $sigma$ 0.5, 1, 2, 4; "
+        "additional edge $sigma$ 0.5 amplitudes 0.25, 0.75"
+    ),
     "gaussian_ridge": "width $sigma$ 1, 2, 4, 8, 16",
     "asymmetric_ridge": "(neg., pos.) $sigma$ (2, 6), (4, 12), (8, 24), (16, 48)",
     "curved_ridge": "width $sigma$ 2, 8; curvature 0.002, 0.006",

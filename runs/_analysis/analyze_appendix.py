@@ -14,14 +14,20 @@ from collections import Counter
 from pathlib import Path
 
 import polars as pl
+from agfb_bench.filters import build_filter_configs
+from synthetic_dedup import deduplicate_synthetic_results
 
 OUT = Path("../PGF_paper/figures/tables")
 OUT.mkdir(parents=True, exist_ok=True)
+MAIN_FIG = Path("../PGF_paper/figures/cetz_src/main")
+MAIN_FIG.mkdir(parents=True, exist_ok=True)
 
 
 def load(subdir: str) -> pl.DataFrame:
     fs = sorted(glob.glob(f"runs/{subdir}/*.parquet"))
-    return pl.concat([pl.read_parquet(f) for f in fs], how="diagonal")
+    return deduplicate_synthetic_results(
+        pl.concat([pl.read_parquet(f) for f in fs], how="diagonal")
+    )
 
 
 def write(name: str, header: list[str], rows: list[list]) -> None:
@@ -292,6 +298,31 @@ write(
     ["Class", "Best filter", "Ang. MAE", "Best CPGF", "Ang. MAE "],
     per_class("angular_mae", 2),
 )
+
+# Main-text clean accuracy scatter: the compact core filter catalog by structure
+# class, with CPGF flagged for rendering.
+core_ids = {cfg.config_id for cfg in build_filter_configs("core")}
+fig_clean = A.filter(pl.col("filter_config_id").is_in(core_ids))
+fig_nr = (
+    fig_clean.filter((pl.col("metric") == "nrmse") & (~pl.col("is_nan")))
+    .group_by("structure_class", "filter_config_id", "filter_family")
+    .agg(pl.col("value").mean().alias("nrmse"))
+)
+fig_mae = (
+    fig_clean.filter((pl.col("metric") == "angular_mae") & (~pl.col("is_nan")))
+    .group_by("structure_class", "filter_config_id", "filter_family")
+    .agg(pl.col("value").mean().alias("angular_mae"))
+)
+fig_scatter = (
+    fig_mae.join(fig_nr, on=["structure_class", "filter_config_id", "filter_family"])
+    .with_columns((pl.col("filter_family") == "cpgf").cast(pl.Int8).alias("is_cpgf"))
+    .select(
+        "structure_class", "filter_config_id", "filter_family", "is_cpgf", "angular_mae", "nrmse"
+    )
+    .sort("structure_class", "filter_config_id")
+)
+fig_scatter.write_csv(MAIN_FIG / "fig_sec06_angmae_nrmse.csv")
+print(f"wrote fig_sec06_angmae_nrmse.csv ({fig_scatter.height} rows)")
 
 # ===== Study C: per-noise-model leaderboard =================================
 C = load("synthetic/noise_breadth")

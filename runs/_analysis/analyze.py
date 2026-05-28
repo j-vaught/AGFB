@@ -3,8 +3,10 @@ per-image metric values averaged over cells/seeds; noise_gain uses the median
 (outlier-robust, as in the dashboard)."""
 
 import glob
+import re
 
 import polars as pl
+from synthetic_dedup import deduplicate_synthetic_results
 
 pl.Config.set_tbl_rows(20)
 pl.Config.set_tbl_width_chars(200)
@@ -12,7 +14,9 @@ pl.Config.set_tbl_width_chars(200)
 
 def load(subdir):
     fs = sorted(glob.glob(f"runs/{subdir}/*.parquet"))
-    return pl.concat([pl.read_parquet(f) for f in fs], how="diagonal")
+    return deduplicate_synthetic_results(
+        pl.concat([pl.read_parquet(f) for f in fs], how="diagonal")
+    )
 
 
 def agg_filter(df, metric, fn="mean"):
@@ -66,19 +70,29 @@ for fid in [
     row = cl_sorted.filter(pl.col("filter_config_id") == fid)
     if row.height:
         r = row.row(0, named=True)
-        print(f"  {fid:46s} rank={r['rank']:3d} nrmse={r['nrmse']:.4g} angmae={r['angular_mae']:.4g}")
+        print(
+            f"  {fid:46s} rank={r['rank']:3d} nrmse={r['nrmse']:.4g} angmae={r['angular_mae']:.4g}"
+        )
 
 # ===== C: mixed-catalog noise robustness =====
 C = load("synthetic/noise_breadth")
 print("\n" + "=" * 70, "\nSTUDY C - categorical noise, 29 filters, 8 seeds")
 print("noise models:", C["noise_model"].unique().to_list())
 print("conditions:", C["noise_condition_id"].n_unique())
-cn = agg_filter(C, "nrmse").join(agg_filter(C, "angular_mae"), on=["filter_config_id", "filter_family"])
-cn = cn.join(agg_filter(C, "noise_gain", "median").select("filter_config_id", "noise_gain"), on="filter_config_id")
+cn = agg_filter(C, "nrmse").join(
+    agg_filter(C, "angular_mae"), on=["filter_config_id", "filter_family"]
+)
+cn = cn.join(
+    agg_filter(C, "noise_gain", "median").select("filter_config_id", "noise_gain"),
+    on="filter_config_id",
+)
 show("best NRMSE under noise (C, all models pooled)", cn, "nrmse")
 cn_sorted = cn.sort("nrmse").with_row_index("rank")
 cp2 = cn_sorted.filter(pl.col("filter_family") == "cpgf").head(1)
-print("best CPGF rank under noise:", cp2.select("rank", "filter_config_id", "nrmse", "noise_gain").to_dicts())
+print(
+    "best CPGF rank under noise:",
+    cp2.select("rank", "filter_config_id", "nrmse", "noise_gain").to_dicts(),
+)
 
 # ===== CG: CPGF radius/degree grid under noise =====
 CG = load("synthetic/cpgf_grid")
@@ -86,16 +100,20 @@ print("\n" + "=" * 70, "\nSTUDY CG - CPGF grid under noise, 51 filters, 8 seeds"
 print("families:", CG["filter_family"].unique().to_list())
 print("noise models:", CG["noise_model"].unique().to_list())
 cg = agg_filter(CG, "nrmse").join(
-    agg_filter(CG, "noise_gain", "median").select("filter_config_id", "noise_gain"), on="filter_config_id"
+    agg_filter(CG, "noise_gain", "median").select("filter_config_id", "noise_gain"),
+    on="filter_config_id",
 )
-cg = cg.join(agg_filter(CG, "angular_mae").select("filter_config_id", "angular_mae"), on="filter_config_id")
+cg = cg.join(
+    agg_filter(CG, "angular_mae").select("filter_config_id", "angular_mae"),
+    on="filter_config_id",
+)
 show("best NRMSE (CG, CPGF grid under noise)", cg, "nrmse", k=10)
-# radius trend: parse r and d from config id like cpgf_radius15_degree1
-import re
+
 
 def rd(s):
     m = re.search(r"radius(\d+)_degree(\d+)", s)
     return (int(m.group(1)), int(m.group(2))) if m else (None, None)
+
 
 cg2 = cg.with_columns(
     pl.col("filter_config_id").map_elements(lambda s: rd(s)[0], return_dtype=pl.Int64).alias("r"),
@@ -120,8 +138,17 @@ for fid in [
         r = row.row(0, named=True)
         print(f"  {fid:46s} {r['filter_path']:18s} {r['ms']:.3f} ms")
 print("\nCPGF timing by path/radius:")
-cpd = D.filter(pl.col("filter_family") == "cpgf").with_columns(
-    pl.col("filter_config_id").map_elements(lambda s: rd(s)[0], return_dtype=pl.Int64).alias("r")
-).sort("r")
+cpd = (
+    D.filter(pl.col("filter_family") == "cpgf")
+    .with_columns(
+        pl.col("filter_config_id")
+        .map_elements(lambda s: rd(s)[0], return_dtype=pl.Int64)
+        .alias("r")
+    )
+    .sort("r")
+)
 for r in cpd.iter_rows(named=True):
-    print(f"  {r['filter_config_id']:30s} r={r['r']} path={r['filter_path']:12s} {r['ms_per_call']:.3f} ms")
+    print(
+        f"  {r['filter_config_id']:30s} r={r['r']} path={r['filter_path']:12s} "
+        f"{r['ms_per_call']:.3f} ms"
+    )
