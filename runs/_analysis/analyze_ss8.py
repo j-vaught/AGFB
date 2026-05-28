@@ -20,13 +20,9 @@ def best_raw_ods(study_glob):
     fs = sorted(glob.glob(study_glob))
     df = pl.concat([pl.read_parquet(f) for f in fs], how="diagonal")
     df = df.filter(
-        (pl.col("dataset") == "bsds500")
-        & (pl.col("mode") == "raw")
-        & (pl.col("metric") == "ods")
+        (pl.col("dataset") == "bsds500") & (pl.col("mode") == "raw") & (pl.col("metric") == "ods")
     )
-    return df.group_by("filter_config_id", "filter_family").agg(
-        pl.col("value").mean().alias("ods")
-    )
+    return df.group_by("filter_config_id", "filter_family").agg(pl.col("value").mean().alias("ods"))
 
 
 native = best_raw_ods("runs/realimg/edges/*.parquet").rename({"ods": "ods_native"})
@@ -43,14 +39,28 @@ print(f"improved by supersampling: {j.filter(pl.col('delta') > 0).height}")
 print(f"mean delta: {j['delta'].mean():.4f}  median: {j['delta'].median():.4f}")
 print(f"max gain: {j['delta'].max():.4f}  max loss: {j['delta'].min():.4f}")
 print("\nCPGF rows:")
-for r in j.filter(pl.col("is_cpgf") == 1).sort("ods_ss8", descending=True).head(8).iter_rows(named=True):
-    print(f"  {r['filter_config_id']:30s} native={r['ods_native']:.4f} ss8={r['ods_ss8']:.4f} d={r['delta']:+.4f}")
+for r in (
+    j.filter(pl.col("is_cpgf") == 1).sort("ods_ss8", descending=True).head(8).iter_rows(named=True)
+):
+    print(
+        f"  {r['filter_config_id']:30s} native={r['ods_native']:.4f} "
+        f"ss8={r['ods_ss8']:.4f} d={r['delta']:+.4f}"
+    )
 print("\nbiggest gains:")
 for r in j.sort("delta", descending=True).head(8).iter_rows(named=True):
-    print(f"  {r['filter_config_id']:30s} [{r['filter_family']}] native={r['ods_native']:.4f} ss8={r['ods_ss8']:.4f} d={r['delta']:+.4f}")
+    print(
+        f"  {r['filter_config_id']:30s} [{r['filter_family']}] "
+        f"native={r['ods_native']:.4f} ss8={r['ods_ss8']:.4f} "
+        f"d={r['delta']:+.4f}"
+    )
 print("\nbest ss8 overall:")
 for r in j.sort("ods_ss8", descending=True).head(6).iter_rows(named=True):
-    print(f"  {r['filter_config_id']:30s} [{r['filter_family']}] native={r['ods_native']:.4f} ss8={r['ods_ss8']:.4f}")
+    print(
+        f"  {r['filter_config_id']:30s} [{r['filter_family']}] "
+        f"native={r['ods_native']:.4f} ss8={r['ods_ss8']:.4f}"
+    )
 
-j.select("filter_config_id", "filter_family", "is_cpgf", "ods_native", "ods_ss8", "delta").write_csv(OUT_CSV)
+j.select(
+    "filter_config_id", "filter_family", "is_cpgf", "ods_native", "ods_ss8", "delta"
+).write_csv(OUT_CSV)
 print(f"\nwrote {OUT_CSV}")

@@ -10,7 +10,7 @@ against human boundary annotations.
 
 This repository is the workspace that ties the AGFB component packages together,
 runs the benchmark, and stores the raw measurements behind every figure and table
-in the accompanying paper on the Compact Polynomial Gradient Filter (CPGF). A
+in the accompanying paper on the Circular Polynomial Gradient Filter (CPGF). A
 companion notebook recomputes each headline number from those raw measurements so
 the results can be checked independently.
 
@@ -111,6 +111,14 @@ The raw per-image measurements that back every figure and table are the Parquet
 shards under `runs/`. They are the input the reproduce notebook consumes; the
 analysis scripts in `runs/_analysis/` show how each table in the paper is derived
 from them.
+
+| Manuscript item | Source files or scripts | Notes |
+|---|---|---|
+| Clean headline table | `runs/synthetic/clean_accuracy/` and `runs/_analysis/analyze_appendix.py` | 110 filters over 559 unique generator cells. |
+| AWGN ladder | `runs/synthetic/awgn_robustness/` and `runs/_analysis/analyze_awgn*.py` | Family-envelope NRMSE by SNR. |
+| Real-image table | `runs/realimg/edges/` and `runs/_analysis/analyze_appendix.py` | 182 successful runs, reported as 136 nonredundant rows. |
+| Supersampling figure and tables | `runs/realimg/supersampled/` and `runs/_analysis/analyze_appendix.py` | 174 successful runs, reported as 128 nonredundant matched rows. |
+| Supplement tables | `runs/_analysis/analyze_appendix.py` and `runs/_analysis/analyze_awgn_appendix.py` | Display-ready CSV tables are generated without manual transcription. |
 
 ## License
 

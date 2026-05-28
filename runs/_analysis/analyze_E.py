@@ -31,9 +31,11 @@ cp = d.filter(
     .alias("radius")
 )
 
-at4096 = cp.filter(pl.col("image_size") == 4096).select(
-    "radius", "forced_path", "ms_per_call"
-).sort("radius", "forced_path")
+at4096 = (
+    cp.filter(pl.col("image_size") == 4096)
+    .select("radius", "forced_path", "ms_per_call")
+    .sort("radius", "forced_path")
+)
 at4096.write_csv(OUT_CSV)
 print(f"wrote {OUT_CSV} ({at4096.height} rows)")
 
@@ -54,4 +56,7 @@ print("\nimage-size scaling at r15 (degree 1):")
 sz = cp.filter(pl.col("radius") == 15).select("image_size", "forced_path", "ms_per_call")
 for p in PATHS:
     vals = sz.filter(pl.col("forced_path") == p).sort("image_size")
-    print(f"  {p:14s}", [(r["image_size"], round(r["ms_per_call"], 2)) for r in vals.iter_rows(named=True)])
+    print(
+        f"  {p:14s}",
+        [(r["image_size"], round(r["ms_per_call"], 2)) for r in vals.iter_rows(named=True)],
+    )
