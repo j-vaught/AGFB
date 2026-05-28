@@ -158,7 +158,7 @@ def build_filter_configs(profile: str = "full") -> list[FilterConfig]:
     if profile == "headline":
         return configs
 
-    # -- core (~26): headline + tuned sub-ladders -----------------------------
+    # -- core (29): headline + tuned sub-ladders ------------------------------
     for radius in (3, 5, 7, 11, 15, 21, 31, 45):
         if radius == 7:
             continue  # cpgf_r7_d3 already in headline

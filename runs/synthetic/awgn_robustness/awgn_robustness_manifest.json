@@ -1,13 +1,20 @@
 {
   "study": "awgn_robustness",
-  "created_utc": "2026-05-26T09:43:31.965587+00:00",
+  "created_utc": "2026-05-28T16:53:03.345779+00:00",
   "host": "node036",
   "device": "cuda:0",
   "image_size": 4096,
   "seeds": [
-    2
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
   ],
-  "n_cells": 569,
+  "n_cells": 559,
   "n_noise_conditions": 12,
   "n_filter_configs": 110,
   "filter_config_ids": [
@@ -136,9 +143,16 @@
     "edge_fwhm",
     "sidelobe_ratio"
   ],
-  "total_rows": 5257560,
+  "total_rows": 41321280,
   "wall_seconds": 130878.977,
   "shards": [
-    "B_seed02.parquet"
+    "awgn_robustness_seed00.parquet",
+    "awgn_robustness_seed01.parquet",
+    "awgn_robustness_seed02.parquet",
+    "awgn_robustness_seed03.parquet",
+    "awgn_robustness_seed04.parquet",
+    "awgn_robustness_seed05.parquet",
+    "awgn_robustness_seed06.parquet",
+    "awgn_robustness_seed07.parquet"
   ]
 }

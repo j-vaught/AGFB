@@ -23,7 +23,7 @@ The four studies (spec 5.2):
 |---|---|---|---|---|---|
 | A - clean accuracy | full catalog (559) | clean only | `full` (110) | 1 | all 10 |
 | B - AWGN robustness | full catalog (559) | 12 dB levels | `full` (110) | 8 | pixel 7 |
-| C - noise breadth | canonical (24) | 79 native conditions | `core` (~26) | 8 | pixel 7 |
+| C - noise breadth | canonical (24) | 79 native conditions | `core` (29) | 8 | pixel 7 |
 | D - wall-clock | 1 representative | clean + 10 dB | by profile, both paths | 50 reps | timing only |
 
 The metric-set schedule (spec 4.5) is enforced in `runner.py`: the pixel set runs

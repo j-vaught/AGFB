@@ -11,7 +11,6 @@ INTENSITY_CLAMP = (0.0, 1.0)
 
 PRODUCTION_SEEDS = tuple(range(8))  # 0..7
 EXTENDED_SEEDS = tuple(range(16))  # 0..15 (headline + tail metrics)
-VALIDATION_SEEDS = tuple(range(100, 108))  # 100..107 (parameter selection)
 
 # -- AWGN robustness axis (spec 2.1) ------------------------------------------
 # inf is the clean field (sigma_n = 0, no injection).
@@ -31,7 +30,6 @@ SNR_DB_GRID = (
     0.0,
 )
 NOISY_SNR_DB = tuple(db for db in SNR_DB_GRID if math.isfinite(db))  # 12 levels
-TUNING_SNR_DB = 10.0  # parameter selection operating point (spec 5.1)
 
 # -- Metric sets (spec Chapter 4) ---------------------------------------------
 PIXEL_METRICS = (

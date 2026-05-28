@@ -37,7 +37,7 @@ Seeds are the shard axis: one shard is one `(study, seed)` pair.
 |---|---|---|---|---|
 | clean accuracy | full catalog (559) | clean only | full (110) | 1 |
 | AWGN robustness | full catalog (559) | 12 dB levels | full (110) | 8 |
-| noise breadth | canonical (24) | 79 native conditions | core (~26) | 8 |
+| noise breadth | canonical (24) | 79 native conditions | core (29) | 8 |
 | CPGF grid | canonical (24) | 79 native conditions | CPGF radius x degree grid | 8 |
 | wall-clock / backend | 1 representative | clean + 10 dB | both execution paths | timing reps |
 | real-image edges | BSDS500 images | - | gradient magnitude + threshold sweep | - |
@@ -115,7 +115,7 @@ from them.
 | Manuscript item | Source files or scripts | Notes |
 |---|---|---|
 | Clean headline table | `runs/synthetic/clean_accuracy/` and `runs/_analysis/analyze_appendix.py` | 110 filters over 559 unique generator cells. |
-| AWGN ladder | `runs/synthetic/awgn_robustness/` and `runs/_analysis/analyze_awgn*.py` | Family-envelope NRMSE by SNR. |
+| AWGN ladder | `runs/synthetic/awgn_robustness/` and `runs/_analysis/analyze_awgn*.py` | 110 filters over 559 unique generator cells at each SNR. |
 | Real-image table | `runs/realimg/edges/` and `runs/_analysis/analyze_appendix.py` | 182 successful runs, reported as 136 nonredundant rows. |
 | Supersampling figure and tables | `runs/realimg/supersampled/` and `runs/_analysis/analyze_appendix.py` | 174 successful runs, reported as 128 nonredundant matched rows. |
 | Supplement tables | `runs/_analysis/analyze_appendix.py` and `runs/_analysis/analyze_awgn_appendix.py` | Display-ready CSV tables are generated without manual transcription. |
